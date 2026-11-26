@@ -666,9 +666,9 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
     }
 
     UITableViewCell *cell = [self baseCellForTableView:tableView style:UITableViewCellStyleValue1];
-    cell.textLabel.text = YTKACELocalized(@"itzzace");
-    cell.detailTextLabel.text = @"NoDisYT";
-    cell.imageView.image = YTKACEAssetImage(@"YTKIco", @"person.crop.circle");
+    cell.textLabel.text = @"NoDisYT";
+    cell.detailTextLabel.text = @"Distraction-free YouTube";
+    cell.imageView.image = YTKACETemplateImage(@"", @"sparkles");
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
 }
@@ -684,9 +684,7 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
     NSArray *menu = YTKACESettingsMenu();
     if (indexPath.section >= (NSInteger)menu.count) {
         if (indexPath.row != 0) return;
-        NSURL *URL = [NSURL URLWithString:@"https://github.com/itzzace/ytkace"];
-        [UIApplication.sharedApplication openURL:URL options:@{}
-                               completionHandler:nil];
+        YTKACEShowNotice(@"NoDisYT — Distraction-free YouTube for iOS");
         return;
     }
     NSDictionary *row = menu[(NSUInteger)indexPath.section][@"rows"][(NSUInteger)indexPath.row];

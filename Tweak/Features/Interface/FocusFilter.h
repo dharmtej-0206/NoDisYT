@@ -21,4 +21,8 @@ BOOL YTKACEFocusHasPassword(void);
 BOOL YTKACEFocusVerifyPassword(NSString *password);
 void YTKACEFocusSetPassword(NSString *password);
 
+NSString *YTKACEFocusGetAPIKey(void);
+BOOL YTKACEFocusHasCustomAPIKey(void);
+void YTKACEFocusSetAPIKey(NSString * _Nullable apiKey);
+
 NS_ASSUME_NONNULL_END

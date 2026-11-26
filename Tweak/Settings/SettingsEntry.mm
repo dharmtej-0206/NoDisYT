@@ -8,6 +8,7 @@
 
 static IMP OriginalPivotViewDidAppear;
 static IMP OriginalRightButtonsLayoutSubviews;
+static IMP OriginalRightButtonsPointInside;
 static const void *YTKACESettingsButtonAssociation = &YTKACESettingsButtonAssociation;
 
 static UIViewController *YTKACETopViewController(UIViewController *controller) {
@@ -72,13 +73,19 @@ static UIViewController *YTKACETopViewController(UIViewController *controller) {
 
 @end
 
-static UIBarButtonItem *YTKACESettingsBarButton(void) {
-    UIImage *image = [YTKACEGearImage()
+static UIImage *YTKACETopBarGearImage(void) {
+    UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration
+        configurationWithPointSize:20.0 weight:UIImageSymbolWeightRegular];
+    UIImage *symbol = [UIImage systemImageNamed:@"gearshape" withConfiguration:cfg];
+    return [(symbol ?: YTKACEGearImage())
         imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    return [[UIBarButtonItem alloc] initWithImage:image
-                                           style:UIBarButtonItemStylePlain
-                                          target:YTKACESettingsPresenter.sharedPresenter
-                                          action:@selector(openSettings)];
+}
+
+static UIBarButtonItem *YTKACESettingsBarButton(void) {
+    return [[UIBarButtonItem alloc] initWithImage:YTKACETopBarGearImage()
+                                            style:UIBarButtonItemStylePlain
+                                           target:YTKACESettingsPresenter.sharedPresenter
+                                           action:@selector(openSettings)];
 }
 
 static void YTKACEPivotViewDidAppear(id receiver, SEL selector, BOOL animated) {
@@ -104,14 +111,34 @@ static void YTKACEPivotViewDidAppear(id receiver, SEL selector, BOOL animated) {
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+static UIButton *YTKACEMakeTopBarSettingsButton(void) {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    [button setImage:YTKACETopBarGearImage() forState:UIControlStateNormal];
+    button.tintColor = UIColor.labelColor;
+    button.accessibilityLabel = @"NoDisYT Settings";
+    button.accessibilityIdentifier = @"YTKACESettingsButton";
+    [button addTarget:YTKACESettingsPresenter.sharedPresenter
+               action:@selector(openSettings)
+     forControlEvents:UIControlEventTouchUpInside];
+    return button;
+}
+
+static BOOL YTKACERightButtonsPointInside(UIView *receiver, SEL selector, CGPoint point, UIEvent *event) {
+    UIButton *button = objc_getAssociatedObject(receiver, YTKACESettingsButtonAssociation);
+    if ([button isKindOfClass:UIButton.class] && !button.hidden && button.superview == receiver) {
+        if (CGRectContainsPoint(CGRectInset(button.frame, -6.0, -6.0), point)) {
+            return YES;
+        }
+    }
+    if (OriginalRightButtonsPointInside != NULL) {
+        return ((BOOL (*)(id, SEL, CGPoint, id))OriginalRightButtonsPointInside)(receiver, selector, point, event);
+    }
+    return NO;
+}
+
 static void YTKACERightButtonsLayoutSubviews(UIView *receiver, SEL selector) {
     if (OriginalRightButtonsLayoutSubviews != NULL) {
         ((void (*)(id, SEL))OriginalRightButtonsLayoutSubviews)(receiver, selector);
-    }
-    if (objc_getAssociatedObject(receiver, YTKACESettingsButtonAssociation) != nil) {
-        YTKACEApplyRightNavigationVisibility(receiver);
-        YTKACEApplyTopNavigationGlass(receiver);
-        return;
     }
 
     UIStackView *stack = nil;
@@ -121,27 +148,48 @@ static void YTKACERightButtonsLayoutSubviews(UIView *receiver, SEL selector) {
             break;
         }
     }
-    if (stack == nil) {
-        YTKACEApplyTopNavigationGlass(receiver);
-        return;
+
+    UIButton *button = objc_getAssociatedObject(receiver, YTKACESettingsButtonAssociation);
+    if (button == nil) {
+        button = YTKACEMakeTopBarSettingsButton();
+        if (stack != nil) {
+            [button.widthAnchor constraintEqualToConstant:36.0].active = YES;
+            [button.heightAnchor constraintEqualToConstant:36.0].active = YES;
+            [stack insertArrangedSubview:button atIndex:0];
+        } else {
+            [receiver addSubview:button];
+        }
+        objc_setAssociatedObject(receiver,
+                                 YTKACESettingsButtonAssociation,
+                                 button,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
 
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    [button setImage:[YTKACEGearImage()
-        imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]
-             forState:UIControlStateNormal];
-    button.accessibilityLabel = @"NoDisYT Settings";
-    [button addTarget:YTKACESettingsPresenter.sharedPresenter
-               action:@selector(openSettings)
-     forControlEvents:UIControlEventTouchUpInside];
-    [button.widthAnchor constraintEqualToConstant:32.0].active = YES;
-    [button.heightAnchor constraintEqualToConstant:32.0].active = YES;
-    [stack insertArrangedSubview:button atIndex:0];
+    if (stack == nil) {
+        if (button.superview != receiver) {
+            [receiver addSubview:button];
+        }
+        receiver.clipsToBounds = NO;
+        CGFloat minX = CGFLOAT_MAX;
+        CGFloat midY = CGRectGetMidY(receiver.bounds);
+        for (UIView *subview in receiver.subviews) {
+            if (subview == button || subview.hidden || subview.alpha < 0.01) continue;
+            if (CGRectGetWidth(subview.frame) < 8.0 || CGRectGetHeight(subview.frame) < 8.0) continue;
+            if (CGRectGetMinX(subview.frame) < minX) {
+                minX = CGRectGetMinX(subview.frame);
+                midY = CGRectGetMidY(subview.frame);
+            }
+        }
+        if (minX == CGFLOAT_MAX) {
+            minX = 0.0;
+        }
+        CGFloat size = 36.0;
+        button.frame = CGRectMake(minX - size - 6.0, midY - size * 0.5, size, size);
+        button.tintColor = UIColor.labelColor;
+        button.hidden = NO;
+        [receiver bringSubviewToFront:button];
+    }
 
-    objc_setAssociatedObject(receiver,
-                             YTKACESettingsButtonAssociation,
-                             button,
-                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     YTKACEApplyRightNavigationVisibility(receiver);
     YTKACEApplyTopNavigationGlass(receiver);
 }
@@ -155,4 +203,8 @@ void YTKACEInstallSettingsEntryHooks(void) {
                               @"layoutSubviews",
                               (IMP)YTKACERightButtonsLayoutSubviews,
                               &OriginalRightButtonsLayoutSubviews);
+    YTKACEInstallInstanceHook(@"YTRightNavigationButtons",
+                              @"pointInside:withEvent:",
+                              (IMP)YTKACERightButtonsPointInside,
+                              &OriginalRightButtonsPointInside);
 }

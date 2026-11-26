@@ -234,12 +234,12 @@ static UIColor *YTKACEFocusSettingsBackground(void) {
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     (void)tableView;
-    return section == 0 ? 4 : 1;
+    return section == 0 ? 4 : 2;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     (void)tableView;
-    return section == 0 ? @"FILTERS" : @"SECURITY";
+    return section == 0 ? @"FILTERS" : @"API & SECURITY";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
@@ -282,6 +282,18 @@ static UIColor *YTKACEFocusSettingsBackground(void) {
                 (unsigned long)count];
             cell.accessoryType = UITableViewCellAccessoryNone;
         }
+    } else if (indexPath.row == 0) {
+        NSString *key = YTKACEFocusGetAPIKey();
+        NSString *suffix = key.length >= 4 ? [key substringFromIndex:key.length - 4] : @"";
+        cell.textLabel.text = @"YouTube Data API Key";
+        if (key.length == 0) {
+            cell.detailTextLabel.text = @"Not set (tap to add key for category filtering)";
+        } else if (YTKACEFocusHasCustomAPIKey()) {
+            cell.detailTextLabel.text = [NSString stringWithFormat:@"Custom key (••••%@)", suffix];
+        } else {
+            cell.detailTextLabel.text = [NSString stringWithFormat:@"Built-in key (••••%@)", suffix];
+        }
+        cell.accessoryType = UITableViewCellAccessoryNone;
     } else {
         cell.textLabel.text = @"Change Password";
         cell.detailTextLabel.text = @"Update the password required to open Focus Filters";
@@ -354,6 +366,38 @@ static UIColor *YTKACEFocusSettingsBackground(void) {
             }]];
             [self presentViewController:confirm animated:YES completion:nil];
         }
+    } else if (indexPath.row == 0) {
+        UIAlertController *alert = [UIAlertController
+            alertControllerWithTitle:@"YouTube Data API Key"
+                             message:@"Enter your YouTube Data API v3 key for category filtering. Leave blank to use the built-in default."
+                      preferredStyle:UIAlertControllerStyleAlert];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+            tf.placeholder = @"AIza...";
+            tf.text = YTKACEFocusHasCustomAPIKey() ? YTKACEFocusGetAPIKey() : @"";
+            tf.autocorrectionType = UITextAutocorrectionTypeNo;
+            tf.autocapitalizationType = UITextAutocapitalizationTypeNone;
+            tf.clearButtonMode = UITextFieldViewModeWhileEditing;
+        }];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        if (YTKACEFocusHasCustomAPIKey()) {
+            [alert addAction:[UIAlertAction actionWithTitle:@"Reset to Default"
+                                                      style:UIAlertActionStyleDestructive
+                                                    handler:^(__unused UIAlertAction *action) {
+                YTKACEFocusSetAPIKey(nil);
+                YTKACEShowNotice(@"Reset to built-in API key");
+                [self.tableView reloadData];
+            }]];
+        }
+        __weak UIAlertController *weakAlert = alert;
+        [alert addAction:[UIAlertAction actionWithTitle:@"Save"
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(__unused UIAlertAction *action) {
+            NSString *entered = weakAlert.textFields.firstObject.text ?: @"";
+            YTKACEFocusSetAPIKey(entered);
+            YTKACEShowNotice(YTKACEFocusHasCustomAPIKey() ? @"API key updated" : @"Using built-in API key");
+            [self.tableView reloadData];
+        }]];
+        [self presentViewController:alert animated:YES completion:nil];
     } else {
         UIAlertController *alert = [UIAlertController
             alertControllerWithTitle:@"Change Focus Password"

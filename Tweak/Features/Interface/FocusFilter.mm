@@ -39,6 +39,7 @@ static NSString *const kBlockedTitleKeywordsKey = @"YTKACE.Focus.BlockedTitleKey
 static NSString *const kBlockedCategoryIDsKey = @"YTKACE.Focus.BlockedCategoryIDs";
 static NSString *const kBlockedTitleSeedVersionKey = @"YTKACE.Focus.TitleSeedVersion";
 static NSString *const kFocusPasswordHashKey = @"YTKACE.Focus.PasswordHash";
+static NSString *const kFocusCustomAPIKey = @"YTKACE.Focus.APIKey";
 static NSString *const kUserBlockedVideoIDsKey = @"YTKACE.Focus.UserBlockedVideoIDs";
 static NSString *const kUserBlockedVideoTitlesKey = @"YTKACE.Focus.UserBlockedVideoTitles";
 static NSString *const kFocusBlocklistChangedNotification = @"YTKACEFocusBlocklistDidChangeNotification";
@@ -544,6 +545,29 @@ void YTKACEFocusSetPassword(NSString *password) {
                                             forKey:kFocusPasswordHashKey];
 }
 
+NSString *YTKACEFocusGetAPIKey(void) {
+    NSString *custom = [[NSUserDefaults.standardUserDefaults stringForKey:kFocusCustomAPIKey]
+        stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (custom.length > 0) return custom;
+    return kYTBlockAPIKey ?: @"";
+}
+
+BOOL YTKACEFocusHasCustomAPIKey(void) {
+    NSString *custom = [[NSUserDefaults.standardUserDefaults stringForKey:kFocusCustomAPIKey]
+        stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    return custom.length > 0;
+}
+
+void YTKACEFocusSetAPIKey(NSString * _Nullable apiKey) {
+    NSString *trimmed = [apiKey stringByTrimmingCharactersInSet:
+        NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (trimmed.length == 0) {
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:kFocusCustomAPIKey];
+    } else {
+        [NSUserDefaults.standardUserDefaults setObject:trimmed forKey:kFocusCustomAPIKey];
+    }
+}
+
 // MARK: - Matching Helpers
 
 static BOOL YTKACEIsVideoIDBlocked(NSString *videoID) {
@@ -640,7 +664,8 @@ static NSString *YTKACEBlockReasonForMetadata(NSString *videoID, NSString *chann
 
 static void YTKACEFetchVideosFromAPI(NSArray<NSString *> *videoIDs,
                                      void (^completion)(NSDictionary<NSString *, NSDictionary *> *results)) {
-    if (videoIDs.count == 0 || kYTBlockAPIKey.length == 0) {
+    NSString *apiKey = YTKACEFocusGetAPIKey();
+    if (videoIDs.count == 0 || apiKey.length == 0) {
         if (completion) completion(@{});
         return;
     }
@@ -665,7 +690,7 @@ static void YTKACEFetchVideosFromAPI(NSArray<NSString *> *videoIDs,
     NSString *idsParam = [toFetch componentsJoinedByString:@","];
     NSString *urlString = [NSString stringWithFormat:
         @"https://www.googleapis.com/youtube/v3/videos?part=snippet&fields=items(id,snippet(title,channelTitle,categoryId))&id=%@&key=%@",
-        idsParam, kYTBlockAPIKey];
+        idsParam, apiKey];
     NSURL *url = [NSURL URLWithString:urlString];
     if (!url) {
         os_unfair_lock_lock(&gFocusCacheLock);
@@ -1681,95 +1706,172 @@ static void YTKACEUIActivityStartAnimating(UIView *receiver, SEL selector) {
     }
 }
 
-static const NSInteger kFocusHomeSettingsButtonTag = 0x464F4353;
+static const NSInteger kFocusHomeHubTag = 0x464F4353;
 
-@interface YTKACEHomeSettingsTarget : NSObject
+static UIControl *YTKACEFindNativeSearchButtonInView(UIView *root, NSUInteger depth) {
+    if (root == nil || depth > 14) return nil;
+    if ([NSStringFromClass(root.class) isEqualToString:@"YTRightNavigationButtons"]) {
+        SEL searchSel = NSSelectorFromString(@"searchButton");
+        if ([root respondsToSelector:searchSel]) {
+            id btn = ((id (*)(id, SEL))objc_msgSend)(root, searchSel);
+            if ([btn isKindOfClass:UIControl.class]) return (UIControl *)btn;
+        }
+    }
+    if ([root isKindOfClass:UIControl.class] && root.tag != kFocusHomeHubTag) {
+        NSString *ident = root.accessibilityIdentifier.lowercaseString ?: @"";
+        NSString *label = root.accessibilityLabel.lowercaseString ?: @"";
+        if ([ident isEqualToString:@"id.ui.navigation.search.button"] ||
+            [label isEqualToString:@"search"]) {
+            return (UIControl *)root;
+        }
+    }
+    for (UIView *sub in root.subviews) {
+        UIControl *found = YTKACEFindNativeSearchButtonInView(sub, depth + 1);
+        if (found != nil) return found;
+    }
+    return nil;
+}
+
+@interface YTKACEHomeSearchTarget : NSObject
 + (instancetype)sharedTarget;
-- (void)openSettings:(UIButton *)sender;
+- (void)openSearch:(UIButton *)sender;
 @end
 
-@implementation YTKACEHomeSettingsTarget
+@implementation YTKACEHomeSearchTarget
 + (instancetype)sharedTarget {
-    static YTKACEHomeSettingsTarget *target = nil;
+    static YTKACEHomeSearchTarget *target = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        target = [YTKACEHomeSettingsTarget new];
+        target = [YTKACEHomeSearchTarget new];
     });
     return target;
 }
 
-- (void)openSettings:(UIButton *)sender {
-    UIResponder *walk = sender;
-    UIViewController *presenter = nil;
-    while (walk != nil) {
-        if ([walk isKindOfClass:UIViewController.class]) {
-            presenter = (UIViewController *)walk;
-            break;
-        }
-        walk = walk.nextResponder;
-    }
-    while (presenter.presentedViewController != nil) {
-        presenter = presenter.presentedViewController;
-    }
-    if (presenter == nil) {
+- (void)openSearch:(UIButton *)sender {
+    UIWindow *window = sender.window;
+    if (window == nil) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (![scene isKindOfClass:UIWindowScene.class]) continue;
-            for (UIWindow *window in ((UIWindowScene *)scene).windows) {
-                if (window.isKeyWindow && window.rootViewController != nil) {
-                    presenter = window.rootViewController;
-                    while (presenter.presentedViewController != nil) {
-                        presenter = presenter.presentedViewController;
-                    }
-                    break;
-                }
+            for (UIWindow *cand in ((UIWindowScene *)scene).windows) {
+                if (cand.isKeyWindow) { window = cand; break; }
             }
-            if (presenter != nil) break;
+            if (window != nil) break;
         }
     }
-    if (presenter == nil) return;
-    [presenter presentViewController:YTKACEMakeSettingsNavigationController()
-                            animated:YES
-                          completion:nil];
+    UIControl *searchButton = YTKACEFindNativeSearchButtonInView(window, 0);
+    if (searchButton != nil) {
+        [searchButton sendActionsForControlEvents:UIControlEventTouchUpInside];
+    }
 }
 @end
 
-static void YTKACEEnsureHomeSettingsButton(UIViewController *controller) {
+static UIImage *YTKACEBuildRedYouTubePlayIcon(CGSize size) {
+    UIGraphicsImageRendererFormat *fmt = [UIGraphicsImageRendererFormat preferredFormat];
+    fmt.opaque = NO;
+    fmt.scale = UIScreen.mainScreen.scale;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:fmt];
+    return [[renderer imageWithActions:^(__unused UIGraphicsImageRendererContext *ctx) {
+        CGRect rect = CGRectMake(0.0, 0.0, size.width, size.height);
+        UIBezierPath *bg = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:size.height * 0.28];
+        [[UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:1.0] setFill];
+        [bg fill];
+
+        UIBezierPath *tri = [UIBezierPath bezierPath];
+        CGFloat cx = size.width * 0.52;
+        CGFloat cy = size.height * 0.50;
+        CGFloat halfH = size.height * 0.22;
+        CGFloat halfW = size.width * 0.14;
+        [tri moveToPoint:CGPointMake(cx - halfW, cy - halfH)];
+        [tri addLineToPoint:CGPointMake(cx + halfW, cy)];
+        [tri addLineToPoint:CGPointMake(cx - halfW, cy + halfH)];
+        [tri closePath];
+        [UIColor.whiteColor setFill];
+        [tri fill];
+    }] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+}
+
+static void YTKACEEnsureHomeSearchHub(UIViewController *controller) {
     UIView *host = controller.view;
     if (host == nil) return;
-    UIButton *button = (UIButton *)[host viewWithTag:kFocusHomeSettingsButtonTag];
-    if (button == nil) {
+    UIView *hub = [host viewWithTag:kFocusHomeHubTag];
+    if (hub == nil) {
+        // 1. Custom Logo: [Red Play Icon] YouTube tej(cursive)
+        UIImageView *playIcon = [[UIImageView alloc] initWithImage:
+            YTKACEBuildRedYouTubePlayIcon(CGSizeMake(40.0, 28.0))];
+        playIcon.contentMode = UIViewContentModeScaleAspectFit;
+        playIcon.translatesAutoresizingMaskIntoConstraints = NO;
+        [NSLayoutConstraint activateConstraints:@[
+            [playIcon.widthAnchor constraintEqualToConstant:40.0],
+            [playIcon.heightAnchor constraintEqualToConstant:28.0]
+        ]];
+
+        UILabel *ytLabel = [[UILabel alloc] init];
+        NSMutableAttributedString *wordmark = [[NSMutableAttributedString alloc] initWithString:@"YouTube" attributes:@{
+            NSFontAttributeName: [UIFont systemFontOfSize:30.0 weight:UIFontWeightBold],
+            NSForegroundColorAttributeName: UIColor.labelColor,
+            NSKernAttributeName: @(-1.0)
+        }];
+        UIFont *cursive = [UIFont fontWithName:@"SnellRoundhand-Bold" size:17.0]
+            ?: [UIFont fontWithName:@"SnellRoundhand" size:17.0]
+            ?: [UIFont italicSystemFontOfSize:16.0];
+        NSAttributedString *tej = [[NSAttributedString alloc] initWithString:@" tej" attributes:@{
+            NSFontAttributeName: cursive,
+            NSForegroundColorAttributeName: UIColor.secondaryLabelColor,
+            NSBaselineOffsetAttributeName: @(-1.0)
+        }];
+        [wordmark appendAttributedString:tej];
+        ytLabel.attributedText = wordmark;
+
+        UIStackView *logoRow = [[UIStackView alloc] initWithArrangedSubviews:@[playIcon, ytLabel]];
+        logoRow.axis = UILayoutConstraintAxisHorizontal;
+        logoRow.alignment = UIStackViewAlignmentCenter;
+        logoRow.spacing = 6.0;
+
+        // 2. Centered minimalist Search Bar
         UIButtonConfiguration *cfg = [UIButtonConfiguration filledButtonConfiguration];
-        cfg.title = @"NoDisYT Settings";
+        cfg.title = @"Search";
         UIImageSymbolConfiguration *symCfg = [UIImageSymbolConfiguration
-            configurationWithPointSize:15.0 weight:UIImageSymbolWeightSemibold];
-        cfg.image = [UIImage systemImageNamed:@"gearshape.fill" withConfiguration:symCfg];
-        cfg.imagePadding = 8.0;
+            configurationWithPointSize:17.0 weight:UIImageSymbolWeightMedium];
+        cfg.image = [UIImage systemImageNamed:@"magnifyingglass" withConfiguration:symCfg];
+        cfg.imagePadding = 10.0;
         cfg.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-        cfg.contentInsets = NSDirectionalEdgeInsetsMake(12.0, 22.0, 12.0, 22.0);
-        cfg.baseForegroundColor = UIColor.labelColor;
+        cfg.contentInsets = NSDirectionalEdgeInsetsMake(13.0, 22.0, 13.0, 22.0);
+        cfg.baseForegroundColor = UIColor.secondaryLabelColor;
         cfg.baseBackgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
             return traits.userInterfaceStyle == UIUserInterfaceStyleDark
-                ? [UIColor colorWithWhite:0.15 alpha:1.0]
-                : [UIColor colorWithWhite:0.92 alpha:1.0];
+                ? [UIColor colorWithWhite:0.13 alpha:1.0]
+                : [UIColor colorWithWhite:0.94 alpha:1.0];
         }];
-        button = [UIButton buttonWithConfiguration:cfg primaryAction:nil];
-        button.tag = kFocusHomeSettingsButtonTag;
-        button.translatesAutoresizingMaskIntoConstraints = NO;
-        button.layer.borderWidth = 0.5;
-        button.layer.borderColor = UIColor.separatorColor.CGColor;
-        button.layer.cornerRadius = 22.0;
-        button.clipsToBounds = YES;
-        [button addTarget:YTKACEHomeSettingsTarget.sharedTarget
-                   action:@selector(openSettings:)
-         forControlEvents:UIControlEventTouchUpInside];
-        [host addSubview:button];
+        UIButton *searchBar = [UIButton buttonWithConfiguration:cfg primaryAction:nil];
+        searchBar.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+        searchBar.translatesAutoresizingMaskIntoConstraints = NO;
+        searchBar.layer.borderWidth = 0.75;
+        searchBar.layer.borderColor = UIColor.separatorColor.CGColor;
+        searchBar.layer.cornerRadius = 24.0;
+        searchBar.clipsToBounds = YES;
+        [searchBar addTarget:YTKACEHomeSearchTarget.sharedTarget
+                      action:@selector(openSearch:)
+            forControlEvents:UIControlEventTouchUpInside];
+        [searchBar.heightAnchor constraintEqualToConstant:48.0].active = YES;
+
+        UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[logoRow, searchBar]];
+        stack.tag = kFocusHomeHubTag;
+        stack.axis = UILayoutConstraintAxisVertical;
+        stack.alignment = UIStackViewAlignmentCenter;
+        stack.spacing = 22.0;
+        stack.translatesAutoresizingMaskIntoConstraints = NO;
+
+        [host addSubview:stack];
         [NSLayoutConstraint activateConstraints:@[
-            [button.centerXAnchor constraintEqualToAnchor:host.centerXAnchor],
-            [button.centerYAnchor constraintEqualToAnchor:host.centerYAnchor]
+            [stack.centerXAnchor constraintEqualToAnchor:host.centerXAnchor],
+            [stack.centerYAnchor constraintEqualToAnchor:host.centerYAnchor constant:-36.0],
+            [searchBar.widthAnchor constraintEqualToAnchor:host.widthAnchor constant:-56.0],
+            [searchBar.widthAnchor constraintLessThanOrEqualToConstant:360.0]
         ]];
+        hub = stack;
     }
-    button.hidden = NO;
-    [host bringSubviewToFront:button];
+    hub.hidden = NO;
+    [host bringSubviewToFront:hub];
 }
 
 static void YTKACEBrowseViewDidLayoutSubviews(UIViewController *receiver, SEL selector) {
@@ -1778,7 +1880,7 @@ static void YTKACEBrowseViewDidLayoutSubviews(UIViewController *receiver, SEL se
     }
     if (YTKACEIsHomeFeedReceiver(receiver)) {
         YTKACEHideSpinnersInTree(receiver.view, 0);
-        YTKACEEnsureHomeSettingsButton(receiver);
+        YTKACEEnsureHomeSearchHub(receiver);
     }
 }
 

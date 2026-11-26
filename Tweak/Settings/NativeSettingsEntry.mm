@@ -39,7 +39,7 @@ static NSArray<NSDictionary *> *YTKACENativeLayout(void) {
     }
     [layout addObjectsFromArray:@[
         @{@"kind": @"header", @"title": @"ABOUT"},
-        @{@"kind": @"row", @"title": @"itzzace", @"developer": @YES},
+        @{@"kind": @"row", @"title": @"NoDisYT", @"developer": @YES},
         @{@"kind": @"footer"}
     ]];
     return layout;
@@ -94,7 +94,7 @@ static NSArray *YTKACEOrderedGroupCategories(id receiver, SEL selector, NSUInteg
 static NSString *YTKACENativeSettingsSubtitle(NSString *title) {
     NSString *value = YTKACENativeMenuRow(title)[@"detail"];
     if ([title isEqualToString:@"Downloads & Library"]) value = @"Saved video, audio, Shorts, imports and backups";
-    if ([title isEqualToString:@"itzzace"]) value = @"Developer";
+    if ([title isEqualToString:@"NoDisYT"]) value = @"Distraction-free YouTube for iOS";
     return value != nil ? YTKACELocalized(value) : nil;
 }
 
@@ -178,7 +178,7 @@ static UIImage *YTKACENativeSettingsIconImage(NSString *title) {
     if ([title isEqualToString:@"Downloads & Library"]) {
         return YTKACEDownloadTabImage(NO);
     }
-    NSString *symbol = [title isEqualToString:@"itzzace"] ? @"person.crop.circle" : YTKACENativeMenuRow(title)[@"symbol"];
+    NSString *symbol = [title isEqualToString:@"NoDisYT"] ? @"sparkles" : YTKACENativeMenuRow(title)[@"symbol"];
     return symbol.length != 0 ? [UIImage systemImageNamed:symbol] : nil;
 }
 
@@ -389,10 +389,7 @@ static void YTKACEUpdateNativeSettingsSection(id receiver, SEL selector,
             controller.hidesSettingsButton = YES;
             return controller;
         } copy],
-        @"itzzace": [^UIViewController *{
-            NSURL *URL = [NSURL URLWithString:@"https://github.com/itzzace/ytkace"];
-            [UIApplication.sharedApplication openURL:URL options:@{}
-                                   completionHandler:nil];
+        @"NoDisYT": [^UIViewController *{
             return nil;
         } copy]
     } mutableCopy];
