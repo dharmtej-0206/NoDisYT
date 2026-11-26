@@ -77,6 +77,8 @@ static IMP OriginalMDCDidMoveToWindow = NULL;
 static IMP OriginalQTMStartAnimating = NULL;
 static IMP OriginalUIActivityStartAnimating = NULL;
 static IMP OriginalBrowseLayoutSubviews = NULL;
+static IMP OriginalSearchViewFocusLayout = NULL;
+static IMP OriginalSearchSuggestionsLayout = NULL;
 
 // Allowed YouTube Data API v3 category IDs:
 // 22 = People & Blogs, 24 = Entertainment, 26 = Howto & Style,
@@ -1960,6 +1962,55 @@ static void YTKACEBrowseViewDidLayoutSubviews(UIViewController *receiver, SEL se
     }
 }
 
+// MARK: - Remove Search Recommendations / Trending Suggestions List
+
+static BOOL YTKACEIsInsideSearchResultsVC(UIView *view) {
+    UIResponder *r = view;
+    for (NSUInteger depth = 0; r != nil && depth < 14; depth++) {
+        if ([NSStringFromClass([r class]) containsString:@"YTSearchResultsViewController"]) {
+            return YES;
+        }
+        r = r.nextResponder;
+    }
+    return NO;
+}
+
+static void YTKACEHideSearchSuggestionListsInView(UIView *root, NSUInteger depth) {
+    if (root == nil || depth > 8) return;
+    for (UIView *sub in root.subviews) {
+        NSString *cls = NSStringFromClass([sub class]);
+        BOOL isList = [sub isKindOfClass:UITableView.class] ||
+                      [sub isKindOfClass:UICollectionView.class] ||
+                      [cls containsString:@"Suggestion"] ||
+                      [cls containsString:@"SearchHistory"];
+        if (isList && CGRectGetHeight(sub.bounds) > 80.0) {
+            sub.hidden = YES;
+            sub.alpha = 0.0;
+            sub.userInteractionEnabled = NO;
+            continue;
+        }
+        YTKACEHideSearchSuggestionListsInView(sub, depth + 1);
+    }
+}
+
+static void YTKACESearchViewFocusLayout(UIView *receiver, SEL selector) {
+    if (OriginalSearchViewFocusLayout != NULL) {
+        ((void (*)(id, SEL))OriginalSearchViewFocusLayout)(receiver, selector);
+    }
+    if (!YTKACEIsInsideSearchResultsVC(receiver)) {
+        YTKACEHideSearchSuggestionListsInView(receiver, 0);
+    }
+}
+
+static void YTKACESearchSuggestionsDidLayout(UIViewController *receiver, SEL selector) {
+    if (OriginalSearchSuggestionsLayout != NULL) {
+        ((void (*)(id, SEL))OriginalSearchSuggestionsLayout)(receiver, selector);
+    }
+    receiver.view.hidden = YES;
+    receiver.view.alpha = 0.0;
+    receiver.view.userInteractionEnabled = NO;
+}
+
 void YTKACEInstallFocusFilterHooks(void) {
     YTKACEFocusLoadCacheIfNeeded();
 
@@ -2043,4 +2094,14 @@ void YTKACEInstallFocusFilterHooks(void) {
                               @"viewDidLayoutSubviews",
                               (IMP)YTKACEBrowseViewDidLayoutSubviews,
                               &OriginalBrowseLayoutSubviews);
+
+    // 6. Hide search recommendations / trending suggestions list under the search bar
+    YTKACEInstallInstanceHook(@"YTSearchView",
+                              @"layoutSubviews",
+                              (IMP)YTKACESearchViewFocusLayout,
+                              &OriginalSearchViewFocusLayout);
+    YTKACEInstallInstanceHook(@"YTSearchSuggestionsViewController",
+                              @"viewDidLayoutSubviews",
+                              (IMP)YTKACESearchSuggestionsDidLayout,
+                              &OriginalSearchSuggestionsLayout);
 }

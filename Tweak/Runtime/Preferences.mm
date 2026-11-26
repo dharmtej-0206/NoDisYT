@@ -47,6 +47,7 @@ static NSSet<NSString *> *YTKACELockedPreferenceKeys(void) {
             @"YTKACE.Preference.Navigation.LogoHidden",
             @"YTKACE.Preference.Navigation.NotificationsHidden",
             @"YTKACE.Preference.Navigation.SearchHidden",
+            @"YTKACE.Preference.Privacy.SearchHistoryDisabled",
             @"YTKACE.Preference.Tabs.Hidden.Shorts",
             @"YTKACE.Preference.Tabs.Hidden.Subscriptions",
             @"YTKACE.Preference.Tabs.Hidden.Library",

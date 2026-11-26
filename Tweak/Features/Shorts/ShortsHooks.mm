@@ -580,7 +580,9 @@ static id YTKACEFindShortsController(id receiver) {
     return nil;
 }
 
-static BOOL YTKACEAdvanceShort(id controller, id sender) {
+static BOOL YTKACEAdvanceShort(__unused id controller, __unused id sender) {
+    // Infinite scroll and auto-advance in Shorts are permanently disabled.
+    return NO;
     for (NSString *name in @[
         @"reelContentViewRequestsAdvanceToNextVideo:",
         @"advanceToNextVideo:",
@@ -956,10 +958,36 @@ static void YTKACEReelOverlayLayout(UIView *receiver, SEL selector) {
     YTKACEConfigureReelView(receiver, YES);
 }
 
+static void YTKACEDisableShortsVerticalScroll(UIView *view, NSUInteger depth) {
+    if (view == nil || depth > 8) return;
+    if ([view isKindOfClass:UIScrollView.class]) {
+        UIScrollView *sv = (UIScrollView *)view;
+        if (CGRectGetHeight(sv.bounds) > 200.0 &&
+            (sv.isPagingEnabled || sv.contentSize.height > CGRectGetHeight(sv.bounds) ||
+             [NSStringFromClass(sv.class) containsString:@"CollectionView"])) {
+            sv.scrollEnabled = NO;
+            sv.bounces = NO;
+            sv.panGestureRecognizer.enabled = NO;
+        }
+    }
+    for (UIView *sub in view.subviews) {
+        YTKACEDisableShortsVerticalScroll(sub, depth + 1);
+    }
+}
+
 static void YTKACEShortsControllerLayout(UIViewController *receiver,
                                          SEL selector) {
     YTKACEInvokeShortsOriginal(receiver, selector);
     YTKACEConfigureReelView(receiver.view, YES);
+    YTKACEDisableShortsVerticalScroll(receiver.view, 0);
+    for (UIView *walk = receiver.view.superview; walk != nil; walk = walk.superview) {
+        if ([walk isKindOfClass:UIScrollView.class] && CGRectGetHeight(walk.bounds) > 200.0) {
+            UIScrollView *sv = (UIScrollView *)walk;
+            sv.scrollEnabled = NO;
+            sv.bounces = NO;
+            sv.panGestureRecognizer.enabled = NO;
+        }
+    }
     if (![objc_getAssociatedObject(receiver,
             YTKACEShortsInitialRefreshAssociation) boolValue]) {
         objc_setAssociatedObject(receiver,

@@ -8,22 +8,11 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-static NSString * const YTKACEShortsLimitKey = @"YTKACE.Preference.Shorts.LimitEnabled";
-static NSString * const YTKACEShortsLimitCountKey = @"YTKACE.Preference.Shorts.LimitCount";
-
-static NSMutableOrderedSet<NSString *> *YTKACEShortsSeen;
-static BOOL YTKACEShortsBlocked;
 static id YTKACEShortsLimitObserver;
 
-static NSInteger YTKACEShortsLimitValue(void) {
-    NSInteger value = [NSUserDefaults.standardUserDefaults
-        integerForKey:YTKACEShortsLimitCountKey];
-    if (value < 1) value = 20;
-    return MIN(value, 500);
-}
-
+// Permanently disable infinite scrolling / auto-advancing in Shorts.
 BOOL YTKACEShortsLimitReached(void) {
-    return YTKACEShortsBlocked;
+    return YES;
 }
 
 static UIViewController *YTKACEReelRootController(UIViewController *controller,
@@ -50,67 +39,33 @@ static UIViewController *YTKACEActiveReelController(void) {
     return nil;
 }
 
-static UIScrollView *YTKACEReelPager(UIView *view, NSUInteger depth) {
-    if (view == nil || depth > 8) return nil;
+static void YTKACEDisableReelPagersInTree(UIView *view, NSUInteger depth) {
+    if (view == nil || depth > 8) return;
     for (UIView *child in view.subviews) {
         if ([child isKindOfClass:UIScrollView.class]) {
             UIScrollView *candidate = (UIScrollView *)child;
             if (CGRectGetHeight(candidate.bounds) > 200.0 &&
-                candidate.contentSize.height > CGRectGetHeight(candidate.bounds)) {
-                return candidate;
+                (candidate.isPagingEnabled ||
+                 candidate.contentSize.height > CGRectGetHeight(candidate.bounds) ||
+                 [NSStringFromClass(candidate.class) containsString:@"CollectionView"])) {
+                candidate.scrollEnabled = NO;
+                candidate.bounces = NO;
+                candidate.panGestureRecognizer.enabled = NO;
             }
         }
-        UIScrollView *found = YTKACEReelPager(child, depth + 1);
-        if (found != nil) return found;
-    }
-    return nil;
-}
-
-static void YTKACEApplyShortsBlock(UIViewController *reel) {
-    UIScrollView *pager = YTKACEReelPager(reel.view, 0);
-    if (pager == nil) return;
-    if (!pager.scrollEnabled) return;
-    pager.scrollEnabled = NO;
-}
-
-static void YTKACENoteShort(NSString *videoID, UIViewController *reel) {
-    if (videoID.length == 0) return;
-    if (YTKACEShortsSeen == nil) YTKACEShortsSeen = [NSMutableOrderedSet orderedSet];
-    const NSUInteger before = YTKACEShortsSeen.count;
-    [YTKACEShortsSeen addObject:videoID];
-    if (YTKACEShortsSeen.count == before) return;
-
-    const NSInteger limit = YTKACEShortsLimitValue();
-    if ((NSInteger)YTKACEShortsSeen.count < limit) return;
-
-    const BOOL announce = !YTKACEShortsBlocked;
-    YTKACEShortsBlocked = YES;
-    YTKACEApplyShortsBlock(reel);
-    if (announce) {
-        YTKACEShowNotice([NSString stringWithFormat:
-            YTKACELocalized(@"Shorts limit reached (%ld). Restart YouTube to reset."),
-            (long)limit]);
+        YTKACEDisableReelPagersInTree(child, depth + 1);
     }
 }
 
 static void YTKACEShortsLimitTick(void) {
-    if (!YTKACEFeatureEnabled(YTKACEShortsLimitKey)) return;
     static NSTimeInterval last = 0.0;
     const NSTimeInterval now = NSDate.timeIntervalSinceReferenceDate;
-    if (now - last < 0.4) return;
+    if (now - last < 0.25) return;
     last = now;
 
     UIViewController *reel = YTKACEActiveReelController();
     if (reel == nil) return;
-    SEL active = NSSelectorFromString(@"activeReelPlaybackVideoID");
-    id value = ((id (*)(id, SEL))objc_msgSend)(reel, active);
-    if (![value isKindOfClass:NSString.class] || [value length] == 0) return;
-
-    if (YTKACEShortsBlocked) {
-        YTKACEApplyShortsBlock(reel);
-        return;
-    }
-    YTKACENoteShort(value, reel);
+    YTKACEDisableReelPagersInTree(reel.view, 0);
 }
 
 void YTKACEInstallShortsLimitHooks(void) {
