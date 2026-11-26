@@ -83,6 +83,11 @@ static IMP OriginalSuggestViewDidMove = NULL;
 static IMP OriginalSuggestVCWillAppear = NULL;
 static IMP OriginalSuggestVCLayout = NULL;
 static IMP OriginalSuggestCellLayout = NULL;
+static IMP OriginalFocusHeaderLayout = NULL;
+static IMP OriginalFocusHeaderDidMove = NULL;
+static IMP OriginalFocusHeaderSetAlpha = NULL;
+static IMP OriginalFocusHeaderSetBG = NULL;
+static IMP OriginalFocusComboLayout = NULL;
 
 // Allowed YouTube Data API v3 category IDs:
 // 22 = People & Blogs, 24 = Entertainment, 26 = Howto & Style,
@@ -1917,20 +1922,33 @@ static void YTKACEEnsureHomeSearchHub(UIViewController *controller) {
     [host bringSubviewToFront:hub];
 
     // 2. Remove the grey top header bar chrome on Home (matches Light & Dark seamlessly)
-    UIView *comboRoot = controller.parentViewController.view ?: host.superview;
-    if (comboRoot != nil) {
-        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:comboRoot];
+    UIView *searchRoot = host;
+    for (NSUInteger up = 0; up < 3 && searchRoot.superview != nil; up++) {
+        NSString *pcls = NSStringFromClass([searchRoot.superview class]);
+        if ([pcls isEqualToString:@"YTHeaderContentComboView"] ||
+            [pcls containsString:@"HeaderContent"] ||
+            [pcls containsString:@"WrapperView"]) {
+            searchRoot = searchRoot.superview;
+        } else {
+            break;
+        }
+    }
+    if (searchRoot != nil) {
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:searchRoot];
         NSUInteger visited = 0;
-        while (queue.count > 0 && visited < 40) {
+        while (queue.count > 0 && visited < 80) {
             UIView *node = queue.firstObject;
             [queue removeObjectAtIndex:0];
             visited++;
-            if (node == host || node == hub) continue;
+            if (node == hub || node.tag == kFocusHomeHubTag || node.tag == kFocusHomeGearTag) continue;
             NSString *cls = NSStringFromClass([node class]);
-            if ([cls isEqualToString:@"YTHeaderView"] ||
-                [cls isEqualToString:@"YTNavigationBar"] ||
-                [cls containsString:@"HeaderView"]) {
+            if (([cls isEqualToString:@"YTHeaderView"] ||
+                 [cls isEqualToString:@"YTNavigationBar"] ||
+                 [cls containsString:@"HeaderView"] ||
+                 [cls containsString:@"HeaderBackground"]) &&
+                ![cls isEqualToString:@"YTHeaderContentComboView"]) {
                 node.alpha = 0.0;
+                node.backgroundColor = UIColor.clearColor;
                 node.userInteractionEnabled = NO;
                 continue;
             }
@@ -2075,6 +2093,136 @@ static void YTKACESuggestCellLayout(UIView *receiver, SEL selector) {
     receiver.userInteractionEnabled = NO;
 }
 
+// MARK: - Remove Grey Top Header Bar on Home (Light & Dark Seamless)
+
+static BOOL YTKACEHeaderContainsSearchBar(UIView *root) {
+    if (root == nil) return NO;
+    NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:root];
+    NSUInteger visited = 0;
+    while (queue.count > 0 && visited < 50) {
+        UIView *node = queue.firstObject;
+        [queue removeObjectAtIndex:0];
+        visited++;
+        NSString *cls = NSStringFromClass([node class]);
+        if (!node.hidden && node.alpha > 0.01 &&
+            ([cls isEqualToString:@"YTSearchBarView"] ||
+             [cls isEqualToString:@"YTMultiLineSearchBarView"] ||
+             [node isKindOfClass:UITextField.class] ||
+             [node isKindOfClass:UISearchBar.class])) {
+            return YES;
+        }
+        if (node.subviews.count > 0) {
+            [queue addObjectsFromArray:node.subviews];
+        }
+    }
+    return NO;
+}
+
+static BOOL YTKACEHeaderViewBelongsToHome(UIView *view) {
+    if (view == nil) return NO;
+    if (YTKACEIsHomeFeedReceiver(view)) return YES;
+    UIView *parent = view.superview;
+    for (NSUInteger up = 0; up < 2 && parent != nil; up++) {
+        UIView *hub = [parent viewWithTag:kFocusHomeHubTag];
+        if (hub != nil && !hub.hidden && hub.window != nil) {
+            return YES;
+        }
+        parent = parent.superview;
+    }
+    return NO;
+}
+
+static void YTKACEClearHomeHeaderView(UIView *header) {
+    if (header == nil) return;
+    if (!YTKACEHeaderViewBelongsToHome(header) || YTKACEHeaderContainsSearchBar(header)) return;
+    if (OriginalFocusHeaderSetAlpha != NULL && [NSStringFromClass([header class]) isEqualToString:@"YTHeaderView"]) {
+        ((void (*)(id, SEL, CGFloat))OriginalFocusHeaderSetAlpha)(header, @selector(setAlpha:), 0.0);
+    } else {
+        header.alpha = 0.0;
+    }
+    if (OriginalFocusHeaderSetBG != NULL && [NSStringFromClass([header class]) isEqualToString:@"YTHeaderView"]) {
+        ((void (*)(id, SEL, id))OriginalFocusHeaderSetBG)(header, @selector(setBackgroundColor:), UIColor.clearColor);
+    } else {
+        header.backgroundColor = UIColor.clearColor;
+    }
+    header.userInteractionEnabled = NO;
+}
+
+static void YTKACEFocusHeaderLayout(UIView *receiver, SEL selector) {
+    if (OriginalFocusHeaderLayout != NULL) {
+        ((void (*)(id, SEL))OriginalFocusHeaderLayout)(receiver, selector);
+    }
+    YTKACEClearHomeHeaderView(receiver);
+}
+
+static void YTKACEFocusHeaderDidMove(UIView *receiver, SEL selector) {
+    if (OriginalFocusHeaderDidMove != NULL) {
+        ((void (*)(id, SEL))OriginalFocusHeaderDidMove)(receiver, selector);
+    }
+    if (receiver.window != nil) {
+        YTKACEClearHomeHeaderView(receiver);
+    }
+}
+
+static void YTKACEFocusHeaderSetAlpha(UIView *receiver, SEL selector, CGFloat alpha) {
+    if (alpha > 0.0 && YTKACEHeaderViewBelongsToHome(receiver) && !YTKACEHeaderContainsSearchBar(receiver)) {
+        alpha = 0.0;
+    }
+    if (OriginalFocusHeaderSetAlpha != NULL) {
+        ((void (*)(id, SEL, CGFloat))OriginalFocusHeaderSetAlpha)(receiver, selector, alpha);
+    }
+}
+
+static void YTKACEFocusHeaderSetBG(UIView *receiver, SEL selector, UIColor *color) {
+    if (color != nil && YTKACEHeaderViewBelongsToHome(receiver) && !YTKACEHeaderContainsSearchBar(receiver)) {
+        color = UIColor.clearColor;
+    }
+    if (OriginalFocusHeaderSetBG != NULL) {
+        ((void (*)(id, SEL, id))OriginalFocusHeaderSetBG)(receiver, selector, color);
+    }
+}
+
+static void YTKACEFocusComboLayout(UIView *receiver, SEL selector) {
+    if (OriginalFocusComboLayout != NULL) {
+        ((void (*)(id, SEL))OriginalFocusComboLayout)(receiver, selector);
+    }
+    if (!YTKACEHeaderViewBelongsToHome(receiver)) return;
+    for (UIView *sub in receiver.subviews) {
+        if (sub.tag == kFocusHomeHubTag || sub.tag == kFocusHomeGearTag) continue;
+        if ([sub viewWithTag:kFocusHomeHubTag] != nil || [sub viewWithTag:kFocusHomeGearTag] != nil) continue;
+        NSString *cls = NSStringFromClass([sub class]);
+        BOOL isHeaderChrome = [cls isEqualToString:@"YTHeaderView"] ||
+                              [cls isEqualToString:@"YTNavigationBar"] ||
+                              [cls containsString:@"HeaderView"] ||
+                              [cls containsString:@"HeaderBackground"] ||
+                              [cls containsString:@"StatusBar"] ||
+                              ([sub isKindOfClass:UIVisualEffectView.class] && CGRectGetHeight(sub.frame) <= 150.0);
+        if (!isHeaderChrome &&
+            CGRectGetMinY(sub.frame) <= 4.0 &&
+            CGRectGetHeight(sub.frame) > 10.0 &&
+            CGRectGetHeight(sub.frame) <= 150.0 &&
+            CGRectGetWidth(sub.frame) >= CGRectGetWidth(receiver.bounds) * 0.8) {
+            isHeaderChrome = YES;
+        }
+        if (isHeaderChrome && !YTKACEHeaderContainsSearchBar(sub)) {
+            sub.alpha = 0.0;
+            sub.backgroundColor = UIColor.clearColor;
+            sub.userInteractionEnabled = NO;
+        }
+    }
+    UIView *gear = [receiver viewWithTag:kFocusHomeGearTag];
+    if (gear != nil) {
+        UIView *branch = gear;
+        while (branch.superview != nil && branch.superview != receiver) {
+            branch = branch.superview;
+        }
+        if (branch.superview == receiver) {
+            [receiver bringSubviewToFront:branch];
+        }
+        [gear.superview bringSubviewToFront:gear];
+    }
+}
+
 void YTKACEInstallFocusFilterHooks(void) {
     YTKACEFocusLoadCacheIfNeeded();
 
@@ -2184,4 +2332,26 @@ void YTKACEInstallFocusFilterHooks(void) {
                               @"layoutSubviews",
                               (IMP)YTKACESuggestCellLayout,
                               &OriginalSuggestCellLayout);
+
+    // 7. Eliminate the grey top header bar on Home and keep Settings gear on top
+    YTKACEInstallInstanceHook(@"YTHeaderView",
+                              @"layoutSubviews",
+                              (IMP)YTKACEFocusHeaderLayout,
+                              &OriginalFocusHeaderLayout);
+    YTKACEInstallInstanceHook(@"YTHeaderView",
+                              @"didMoveToWindow",
+                              (IMP)YTKACEFocusHeaderDidMove,
+                              &OriginalFocusHeaderDidMove);
+    YTKACEInstallInstanceHook(@"YTHeaderView",
+                              @"setAlpha:",
+                              (IMP)YTKACEFocusHeaderSetAlpha,
+                              &OriginalFocusHeaderSetAlpha);
+    YTKACEInstallInstanceHook(@"YTHeaderView",
+                              @"setBackgroundColor:",
+                              (IMP)YTKACEFocusHeaderSetBG,
+                              &OriginalFocusHeaderSetBG);
+    YTKACEInstallInstanceHook(@"YTHeaderContentComboView",
+                              @"layoutSubviews",
+                              (IMP)YTKACEFocusComboLayout,
+                              &OriginalFocusComboLayout);
 }
