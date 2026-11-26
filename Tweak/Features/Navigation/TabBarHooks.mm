@@ -840,6 +840,12 @@ static void YTKACESetPivotRenderer(id receiver, SEL selector, id renderer) {
     if (original != NULL) {
         ((void (*)(id, SEL, id))original)(receiver, selector, renderer);
     }
+    if ([receiver isKindOfClass:UIView.class]) {
+        UIView *barView = (UIView *)receiver;
+        barView.hidden = YES;
+        barView.alpha = 0.0;
+        barView.userInteractionEnabled = NO;
+    }
 }
 
 static id YTKACEItemRenderer(UIView *view);
@@ -3284,28 +3290,12 @@ static UIView *YTKACEScrubTarget(UIView *bar, CGPoint point, UIEvent *event) {
 static IMP OriginalPivotBarPointInside;
 static IMP OriginalPivotBarHitTest;
 
-static BOOL YTKACEPivotBarPointInside(UIView *receiver, SEL selector, CGPoint point, UIEvent *event) {
-    BOOL inside = OriginalPivotBarPointInside != NULL &&
-        ((BOOL (*)(id, SEL, CGPoint, id))OriginalPivotBarPointInside)(receiver, selector, point, event);
-    if (YTKACEBarMinimized(receiver)) {
-        UIView *glass = objc_getAssociatedObject(receiver, YTKACEPivotBarGlassAssociation);
-        return glass != nil && CGRectContainsPoint(CGRectInset(glass.frame, -6.0, -6.0), point);
-    }
-    if (inside) return YES;
-    UIView *playerBar = YTKACEInlinePlayerBar(receiver);
-    return playerBar != nil && CGRectContainsPoint(playerBar.frame, point);
+static BOOL YTKACEPivotBarPointInside(__unused UIView *receiver, __unused SEL selector, __unused CGPoint point, __unused UIEvent *event) {
+    return NO;
 }
 
-static UIView *YTKACEPivotBarHitTest(UIView *receiver, SEL selector, CGPoint point, UIEvent *event) {
-    if (YTKACEBarMinimized(receiver)) {
-        UIView *glass = objc_getAssociatedObject(receiver, YTKACEPivotBarGlassAssociation);
-        return glass != nil && CGRectContainsPoint(CGRectInset(glass.frame, -6.0, -6.0), point) ? receiver : nil;
-    }
-    UIView *scrub = YTKACEScrubTarget(receiver, point, event);
-    if (scrub != nil && scrub != YTKACEInlinePlayerBar(receiver)) return scrub;
-    if (!CGRectContainsPoint(receiver.bounds, point)) return nil;
-    return OriginalPivotBarHitTest == NULL ? nil
-        : ((id (*)(id, SEL, CGPoint, id))OriginalPivotBarHitTest)(receiver, selector, point, event);
+static UIView *YTKACEPivotBarHitTest(__unused UIView *receiver, __unused SEL selector, __unused CGPoint point, __unused UIEvent *event) {
+    return nil;
 }
 
 static CGFloat const YTKACEMinimizeDistance = 64.0;
@@ -3582,8 +3572,7 @@ static void YTKACEApplyShortsBackdrop(UIView *bar, BOOL shorts) {
 
 static BOOL YTKACEApplyPivotBarGlass(UIView *receiver, UIView *blur) {
     UIVisualEffectView *glass = objc_getAssociatedObject(receiver, YTKACEPivotBarGlassAssociation);
-    BOOL wanted = YTKACETabBarOwnGlass() &&
-        YTKACELiquidGlassAvailable();
+    BOOL wanted = NO;
     if (!wanted) {
         if (glass != nil) {
             [glass removeFromSuperview];
@@ -4043,12 +4032,65 @@ static void YTKACEScheduleStartupTab(id controller) {
     });
 }
 
+static IMP OriginalFloatingPivotBarLayout;
+static IMP OriginalPivotBarSetHidden;
+static IMP OriginalFloatingPivotBarSetHidden;
+static IMP OriginalPivotBarSetAlpha;
+static IMP OriginalFloatingPivotBarSetAlpha;
+
+static void YTKACEHidePivotBarView(UIView *view) {
+    if (view == nil) return;
+    view.hidden = YES;
+    view.alpha = 0.0;
+    view.userInteractionEnabled = NO;
+}
+
+static void YTKACEPivotBarSetHidden(UIView *receiver, SEL selector, BOOL hidden) {
+    (void)hidden;
+    if (OriginalPivotBarSetHidden != NULL) {
+        ((void (*)(id, SEL, BOOL))OriginalPivotBarSetHidden)(receiver, selector, YES);
+    }
+}
+
+static void YTKACEFloatingPivotBarSetHidden(UIView *receiver, SEL selector, BOOL hidden) {
+    (void)hidden;
+    if (OriginalFloatingPivotBarSetHidden != NULL) {
+        ((void (*)(id, SEL, BOOL))OriginalFloatingPivotBarSetHidden)(receiver, selector, YES);
+    }
+}
+
+static void YTKACEPivotBarSetAlpha(UIView *receiver, SEL selector, CGFloat alpha) {
+    (void)alpha;
+    if (OriginalPivotBarSetAlpha != NULL) {
+        ((void (*)(id, SEL, CGFloat))OriginalPivotBarSetAlpha)(receiver, selector, 0.0);
+    }
+}
+
+static void YTKACEFloatingPivotBarSetAlpha(UIView *receiver, SEL selector, CGFloat alpha) {
+    (void)alpha;
+    if (OriginalFloatingPivotBarSetAlpha != NULL) {
+        ((void (*)(id, SEL, CGFloat))OriginalFloatingPivotBarSetAlpha)(receiver, selector, 0.0);
+    }
+}
+
+static void YTKACEFloatingPivotBarLayout(UIView *receiver, SEL selector) {
+    if (OriginalFloatingPivotBarLayout != NULL) {
+        ((void (*)(id, SEL))OriginalFloatingPivotBarLayout)(receiver, selector);
+    }
+    YTKACEHidePivotBarView(receiver);
+}
+
 static void YTKACEPivotControllerAppear(id receiver, SEL selector, BOOL animated) {
     if (OriginalPivotControllerAppear != NULL) {
         ((void (*)(id, SEL, BOOL))OriginalPivotControllerAppear)(receiver, selector,
                                                                 animated);
     }
     YTKACEPivotBarControllerRef = receiver;
+    SEL pivotViewSel = NSSelectorFromString(@"pivotBarView");
+    if ([receiver respondsToSelector:pivotViewSel]) {
+        UIView *barView = ((id (*)(id, SEL))objc_msgSend)(receiver, pivotViewSel);
+        if ([barView isKindOfClass:UIView.class]) YTKACEHidePivotBarView(barView);
+    }
     YTKACEScheduleStartupTab(receiver);
 }
 
@@ -4058,6 +4100,7 @@ static void YTKACEPivotBarLayout(UIView *receiver, SEL selector) {
     }
     YTKACEHideCreateViews(receiver);
     YTKACEApplyPivotBarBackground(receiver);
+    YTKACEHidePivotBarView(receiver);
 }
 
 static void YTKACEPivotItemLayout(UIView *receiver, SEL selector) {
@@ -4225,9 +4268,37 @@ void YTKACEInstallTabBarHooks(void) {
                               (IMP)YTKACEPivotBarLayout,
                               &OriginalPivotBarLayout);
     YTKACEInstallInstanceHook(@"YTPivotBarView",
+                              @"setHidden:",
+                              (IMP)YTKACEPivotBarSetHidden,
+                              &OriginalPivotBarSetHidden);
+    YTKACEInstallInstanceHook(@"YTPivotBarView",
+                              @"setAlpha:",
+                              (IMP)YTKACEPivotBarSetAlpha,
+                              &OriginalPivotBarSetAlpha);
+    YTKACEInstallInstanceHook(@"YTFloatingPivotBarView",
+                              @"layoutSubviews",
+                              (IMP)YTKACEFloatingPivotBarLayout,
+                              &OriginalFloatingPivotBarLayout);
+    YTKACEInstallInstanceHook(@"YTFloatingPivotBarView",
+                              @"setHidden:",
+                              (IMP)YTKACEFloatingPivotBarSetHidden,
+                              &OriginalFloatingPivotBarSetHidden);
+    YTKACEInstallInstanceHook(@"YTFloatingPivotBarView",
+                              @"setAlpha:",
+                              (IMP)YTKACEFloatingPivotBarSetAlpha,
+                              &OriginalFloatingPivotBarSetAlpha);
+    YTKACEInstallInstanceHook(@"YTPivotBarView",
                               @"pointInside:withEvent:",
                               (IMP)YTKACEPivotBarPointInside,
                               &OriginalPivotBarPointInside);
+    YTKACEInstallInstanceHook(@"YTFloatingPivotBarView",
+                              @"pointInside:withEvent:",
+                              (IMP)YTKACEPivotBarPointInside,
+                              NULL);
+    YTKACEInstallInstanceHook(@"YTFloatingPivotBarView",
+                              @"hitTest:withEvent:",
+                              (IMP)YTKACEPivotBarHitTest,
+                              NULL);
     if (YTKACETabBarOwnGlass() && YTKACELiquidGlassAvailable()) {
         YTKACEInstallInstanceHook(@"UIScrollView",
                                   @"setContentOffset:",

@@ -80,7 +80,7 @@ static NSArray *YTKACEOrderedSettingsGroups(id receiver, SEL selector) {
 }
 
 static NSString *YTKACESettingsGroupTitle(id receiver, SEL selector, NSUInteger type) {
-    if (type == YTKACENativeSettingsGroup) return @"YTKACE";
+    if (type == YTKACENativeSettingsGroup) return @"NoDisYT";
     return OriginalSettingsGroupTitle == NULL ? nil :
         ((id (*)(id, SEL, NSUInteger))OriginalSettingsGroupTitle)(receiver, selector, type);
 }
@@ -442,10 +442,10 @@ static void YTKACEUpdateNativeSettingsSection(id receiver, SEL selector,
             ((void (*)(id, SEL, NSInteger))objc_msgSend)(icon, setIconType, 44);
         }
         ((void (*)(id, SEL, id, NSUInteger, id, id, id, BOOL))objc_msgSend)(
-            settingsController, modern, items, category, @"YTKACE", icon, nil, NO);
+            settingsController, modern, items, category, @"NoDisYT", icon, nil, NO);
     } else if ([settingsController respondsToSelector:legacy]) {
         ((void (*)(id, SEL, id, NSUInteger, id, id, BOOL))objc_msgSend)(
-            settingsController, legacy, items, category, @"YTKACE", nil, NO);
+            settingsController, legacy, items, category, @"NoDisYT", nil, NO);
     }
 }
 

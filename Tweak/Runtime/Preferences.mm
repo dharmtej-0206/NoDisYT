@@ -42,9 +42,12 @@ static NSSet<NSString *> *YTKACELockedPreferenceKeys(void) {
             @"YTKACE.Preference.Shorts.PauseCardHidden",
             @"YTKACE.Preference.Shorts.SuggestionPillHidden",
             @"YTKACE.Preference.Shorts.PostsHidden",
+            @"YTKACE.Preference.Feed.HomeTabsHidden",
+            @"YTKACE.Preference.Navigation.TopicsHidden",
             @"YTKACE.Preference.Tabs.Hidden.Shorts",
             @"YTKACE.Preference.Tabs.Hidden.Subscriptions",
-            @"YTKACE.Preference.Tabs.Hidden.Library"
+            @"YTKACE.Preference.Tabs.Hidden.Library",
+            @"YTKACE.Preference.Tabs.Hidden.YTKACETab"
         ]];
     });
     return keys;
@@ -56,7 +59,7 @@ BOOL YTKACEIsLockedPreference(NSString *key) {
 }
 
 static NSArray<NSString *> *YTKACESanitizedTabOrder(id rawOrder) {
-    NSSet<NSString *> *removed = [NSSet setWithArray:@[@"shorts", @"subscriptions", @"library"]];
+    NSSet<NSString *> *removed = [NSSet setWithArray:@[@"shorts", @"subscriptions", @"library", @"ytkace"]];
     NSMutableArray<NSString *> *filtered = [NSMutableArray array];
     if ([rawOrder isKindOfClass:NSArray.class]) {
         for (id entry in (NSArray *)rawOrder) {
@@ -67,7 +70,7 @@ static NSArray<NSString *> *YTKACESanitizedTabOrder(id rawOrder) {
         }
     }
     if (filtered.count == 0) {
-        return @[@"home", @"ytkace"];
+        return @[@"home"];
     }
     return [filtered copy];
 }
@@ -241,7 +244,8 @@ void YTKACERegisterDefaults(void) {
         @"YTKACE.Preference.Tabs.Hidden.Shorts": @YES,
         @"YTKACE.Preference.Tabs.Hidden.Subscriptions": @YES,
         @"YTKACE.Preference.Tabs.Hidden.Library": @YES,
-        @"YTKACE.Preference.Tabs.Order": @[@"home", @"ytkace"]
+        @"YTKACE.Preference.Tabs.Hidden.YTKACETab": @YES,
+        @"YTKACE.Preference.Tabs.Order": @[@"home"]
     }];
     if (!hasPlacement && [legacyDownloadButton boolValue]) {
         [YTKACEDefaults() setInteger:1

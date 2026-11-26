@@ -207,7 +207,7 @@ NSString *YTKACEDeviceInformationText(void) {
     NSDictionary *info = NSBundle.mainBundle.infoDictionary;
     NSString *youtubeVersion = info[@"CFBundleShortVersionString"] ?: @"Unknown";
     NSString *bundleID = NSBundle.mainBundle.bundleIdentifier ?: @"com.google.ios.youtube";
-    return [NSString stringWithFormat:@"YTKACE %@  •  YouTube %@\n%@\n%@  •  iOS %@",
+    return [NSString stringWithFormat:@"NoDisYT %@  •  YouTube %@\n%@\n%@  •  iOS %@",
         YTKACEVersion, youtubeVersion, bundleID, model,
         UIDevice.currentDevice.systemVersion];
 }
@@ -389,7 +389,7 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(56.0, 55.0, width - 112.0, 34.0)];
     title.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    title.text = @"YTKACE";
+    title.text = @"NoDisYT";
     title.font = [UIFont systemFontOfSize:28.0 weight:UIFontWeightBold];
     title.textAlignment = NSTextAlignmentCenter;
     title.textColor = UIColor.labelColor;
@@ -543,7 +543,7 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
     NSDictionary *info = NSBundle.mainBundle.infoDictionary;
     NSString *youtubeVersion = info[@"CFBundleShortVersionString"] ?: YTKACELocalized(@"Unknown");
     NSString *bundleID = NSBundle.mainBundle.bundleIdentifier ?: @"com.google.ios.youtube";
-    return [NSString stringWithFormat:YTKACELocalized(@"YTKACE %@  •  YouTube %@\n%@\n%@  •  iOS %@"),
+    return [NSString stringWithFormat:YTKACELocalized(@"NoDisYT %@  •  YouTube %@\n%@\n%@  •  iOS %@"),
         YTKACEVersion, youtubeVersion, bundleID, model,
         UIDevice.currentDevice.systemVersion];
 }
@@ -667,7 +667,7 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
 
     UITableViewCell *cell = [self baseCellForTableView:tableView style:UITableViewCellStyleValue1];
     cell.textLabel.text = YTKACELocalized(@"itzzace");
-    cell.detailTextLabel.text = @"YTKACE";
+    cell.detailTextLabel.text = @"NoDisYT";
     cell.imageView.image = YTKACEAssetImage(@"YTKIco", @"person.crop.circle");
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;

@@ -1393,7 +1393,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (_backupRunning) return;
     __weak YTKACEOptionsController *weakSelf = self;
     BOOL shown = YTKACEShowYouTubeConfirmation(
-        @"YTKACE",
+        @"NoDisYT",
         YTKACELocalized(@"Do you want to create a backup?"),
         YTKACELocalized(@"Create"),
         ^{
@@ -1552,7 +1552,7 @@ void YTKACEStartupDestinations(NSArray<NSString *> * _Nullable * _Nullable outTi
         @[@"subscriptions", YTKACELocalized(@"Subscriptions"), @"YTKACE.Preference.Tabs.Hidden.Subscriptions"],
         @[@"shorts", YTKACELocalized(@"Shorts"), @"YTKACE.Preference.Tabs.Hidden.Shorts"],
         @[@"library", YTKACELocalized(@"You"), @"YTKACE.Preference.Tabs.Hidden.Library"],
-        @[@"ytkace", @"YTKACE", @"YTKACE.Preference.Tabs.Hidden.YTKACETab"],
+        @[@"ytkace", @"NoDisYT", @"YTKACE.Preference.Tabs.Hidden.YTKACETab"],
         @[@"create", YTKACELocalized(@"Create"), @"YTKACE.Preference.Tabs.Hidden.Create"],
         @[@"music", YTKACELocalized(@"Music"), @"YTKACE.Preference.Tabs.Hidden.Music"],
         @[@"live", YTKACELocalized(@"Live"), @"YTKACE.Preference.Tabs.Hidden.Live"],
@@ -2060,7 +2060,7 @@ static NSDictionary *YTKACEFeedDefinition(void) {
             YTKACEToggle(@"Remove Play Last in Queue", @"YTKACE.Preference.Menu.PlayLastHidden", @"", @""),
             YTKACEToggle(@"Remove Save to Watch Later", @"YTKACE.Preference.Menu.WatchLaterHidden", @"", @""),
             YTKACEToggle(@"Remove Save to Playlist", @"YTKACE.Preference.Menu.SaveHidden", @"", @""),
-            YTKACEToggleDetail(@"Remove Download", @"Also removes YTKACE's download from this menu.",
+            YTKACEToggleDetail(@"Remove Download", @"Also removes NoDisYT's download from this menu.",
                                @"YTKACE.Preference.Menu.DownloadHidden"),
             YTKACEToggle(@"Remove Share", @"YTKACE.Preference.Menu.ShareHidden", @"", @""),
             YTKACEToggle(@"Remove Not Interested", @"YTKACE.Preference.Menu.NotInterestedHidden", @"", @""),
@@ -2079,7 +2079,7 @@ static NSDictionary *YTKACEFeedDefinition(void) {
                                @"Adds Report AI Channel to the ⋯ menu of videos.",
                                @"YTKACE.Preference.Feed.AIChannelReporting"),
             YTKACEWithFooter(YTKACEInput(@"Report Name", @"Sent with your reports to AiSList.",
-                                         @"YTKACE.Preference.Feed.AIReportName", @"YTKACE"),
+                                         @"YTKACE.Preference.Feed.AIReportName", @"NoDisYT"),
                              @"List from aisloplist.com, updates automatically.")
         ]
     ], @[YTKACELocalized(@"HOME"), YTKACELocalized(@"FEED"), YTKACELocalized(@"VIDEO MENU"),
@@ -2171,11 +2171,11 @@ static NSDictionary *YTKACEGlassOptionsDefinition(void) {
         @[
             YTKACEPickerDetail(@"Tab Bar", @"Default leaves YouTube's own tab bar as is.",
                                @"YTKACE.Preference.Tabs.GlassMode",
-                               @[@"Default", @"YTKACE", @"YouTube", @"Off"], @[@0, @1, @2, @3],
+                               @[@"Default", @"NoDisYT", @"YouTube", @"Off"], @[@0, @1, @2, @3],
                                YTKACETabBarOwnGlass() ? 1 : 0),
             YTKACEToggle(@"Top Bar Buttons", @"YTKACE.Preference.Glass.TopBar", @"", @""),
             YTKACEToggle(@"Menus and Sheets", @"YTKACE.Preference.Glass.Menus", @"", @""),
-            YTKACEToggle(@"YTKACE Toasts and Popups", @"YTKACE.Preference.Glass.Notices", @"", @""),
+            YTKACEToggle(@"NoDisYT Toasts and Popups", @"YTKACE.Preference.Glass.Notices", @"", @""),
             YTKACEToggle(@"Player Buttons", @"YTKACE.Preference.Glass.Player", @"", @"")
         ],
         @[
@@ -2198,7 +2198,7 @@ static NSDictionary *YTKACEGeneralDefinition(void) {
     return YTKACEPageDefinition(@"general", @"General", @[
         @[
             YTKACEPickerDetail(@"Language",
-                @"Language for YTKACE menus. System follows your iPhone.",
+                @"Language for NoDisYT menus. System follows your iPhone.",
                 YTKACELanguageKey, languageTitles, YTKACEAvailableLanguages(), 0)
         ],
         @[
@@ -2217,7 +2217,7 @@ static NSDictionary *YTKACEGeneralDefinition(void) {
                                @"YTKACE.Preference.App.RTLDisabled"),
             YTKACEToggleDetail(@"Block Drag and Drop", @"Stop thumbnails and text from being dragged.",
                                @"YTKACE.Preference.App.DragDropDisabled"),
-            YTKACEToggleDetail(@"Turn Off Haptics", @"Stops vibration feedback in YouTube, including YTKACE's own.",
+            YTKACEToggleDetail(@"Turn Off Haptics", @"Stops vibration feedback in YouTube, including NoDisYT's own.",
                                @"YTKACE.Preference.App.HapticsDisabled")
         ],
         @[
@@ -2312,7 +2312,7 @@ static NSDictionary *YTKACEBackupDefinition(void) {
     return YTKACEPageDefinition(@"backup", @"Backup", @[
         @[
             YTKACEActionDetail(@"Back Up", @"Save settings and media to a ZIP file.", backup),
-            YTKACEActionDetail(@"Restore", @"Open a YTKACE backup from Files.", restore)
+            YTKACEActionDetail(@"Restore", @"Open a NoDisYT backup from Files.", restore)
         ],
         @[
             YTKACEInfo(@"Last Backup", last),
@@ -2363,11 +2363,11 @@ static NSDictionary *YTKACEDownloadsDefinition(void) {
                          @"YTKACE.Preference.Downloads.PlaylistEnabled", @"", @""),
             YTKACEPicker(@"Save Videos To",
                          @"YTKACE.Preference.Downloads.SaveLocation",
-                         @[@"YTKACE Library", @"Photos", @"Ask", @"Share Sheet"],
+                         @[@"NoDisYT Library", @"Photos", @"Ask", @"Share Sheet"],
                          @[@0, @1, @2, @3], 0, @"", @""),
             YTKACEPicker(@"Save Audio To",
                          @"YTKACE.Preference.Downloads.AudioSaveLocation",
-                         @[@"YTKACE Library", @"Photos", @"Ask", @"Share Sheet"],
+                         @[@"NoDisYT Library", @"Photos", @"Ask", @"Share Sheet"],
                          @[@0, @1, @2, @3], 0, @"", @""),
             YTKACEPickerDetail(@"Video Quality",
                 @"Skip the quality list and use the best at or below this.",
@@ -2527,7 +2527,7 @@ NSArray<NSDictionary *> *YTKACEAllPageDefinitions(void) {
 
 UIViewController *YTKACEMakeCreditsController(void) {
     UILabel *label = [UILabel new];
-    label.text = YTKACELocalized(@"YTKACE\nClean-room implementation\nMIT licensed code\nBuilt by Epic");
+    label.text = YTKACELocalized(@"NoDisYT\nDistraction-free YouTube");
     label.numberOfLines = 0;
     label.textAlignment = NSTextAlignmentCenter;
     label.textColor = UIColor.secondaryLabelColor;

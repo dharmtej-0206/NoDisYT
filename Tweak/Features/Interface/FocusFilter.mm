@@ -2,6 +2,7 @@
 #import "../../YTKACE.h"
 #import "../../Runtime/Hooking.h"
 #import "../../Runtime/Preferences.h"
+#import "../../Settings/YTKACERootOptionsController.h"
 #import "../../UI/Notice.h"
 
 #import <UIKit/UIKit.h>
@@ -1680,12 +1681,104 @@ static void YTKACEUIActivityStartAnimating(UIView *receiver, SEL selector) {
     }
 }
 
+static const NSInteger kFocusHomeSettingsButtonTag = 0x464F4353;
+
+@interface YTKACEHomeSettingsTarget : NSObject
++ (instancetype)sharedTarget;
+- (void)openSettings:(UIButton *)sender;
+@end
+
+@implementation YTKACEHomeSettingsTarget
++ (instancetype)sharedTarget {
+    static YTKACEHomeSettingsTarget *target = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        target = [YTKACEHomeSettingsTarget new];
+    });
+    return target;
+}
+
+- (void)openSettings:(UIButton *)sender {
+    UIResponder *walk = sender;
+    UIViewController *presenter = nil;
+    while (walk != nil) {
+        if ([walk isKindOfClass:UIViewController.class]) {
+            presenter = (UIViewController *)walk;
+            break;
+        }
+        walk = walk.nextResponder;
+    }
+    while (presenter.presentedViewController != nil) {
+        presenter = presenter.presentedViewController;
+    }
+    if (presenter == nil) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:UIWindowScene.class]) continue;
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+                if (window.isKeyWindow && window.rootViewController != nil) {
+                    presenter = window.rootViewController;
+                    while (presenter.presentedViewController != nil) {
+                        presenter = presenter.presentedViewController;
+                    }
+                    break;
+                }
+            }
+            if (presenter != nil) break;
+        }
+    }
+    if (presenter == nil) return;
+    [presenter presentViewController:YTKACEMakeSettingsNavigationController()
+                            animated:YES
+                          completion:nil];
+}
+@end
+
+static void YTKACEEnsureHomeSettingsButton(UIViewController *controller) {
+    UIView *host = controller.view;
+    if (host == nil) return;
+    UIButton *button = (UIButton *)[host viewWithTag:kFocusHomeSettingsButtonTag];
+    if (button == nil) {
+        UIButtonConfiguration *cfg = [UIButtonConfiguration filledButtonConfiguration];
+        cfg.title = @"NoDisYT Settings";
+        UIImageSymbolConfiguration *symCfg = [UIImageSymbolConfiguration
+            configurationWithPointSize:15.0 weight:UIImageSymbolWeightSemibold];
+        cfg.image = [UIImage systemImageNamed:@"gearshape.fill" withConfiguration:symCfg];
+        cfg.imagePadding = 8.0;
+        cfg.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+        cfg.contentInsets = NSDirectionalEdgeInsetsMake(12.0, 22.0, 12.0, 22.0);
+        cfg.baseForegroundColor = UIColor.labelColor;
+        cfg.baseBackgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+            return traits.userInterfaceStyle == UIUserInterfaceStyleDark
+                ? [UIColor colorWithWhite:0.15 alpha:1.0]
+                : [UIColor colorWithWhite:0.92 alpha:1.0];
+        }];
+        button = [UIButton buttonWithConfiguration:cfg primaryAction:nil];
+        button.tag = kFocusHomeSettingsButtonTag;
+        button.translatesAutoresizingMaskIntoConstraints = NO;
+        button.layer.borderWidth = 0.5;
+        button.layer.borderColor = UIColor.separatorColor.CGColor;
+        button.layer.cornerRadius = 22.0;
+        button.clipsToBounds = YES;
+        [button addTarget:YTKACEHomeSettingsTarget.sharedTarget
+                   action:@selector(openSettings:)
+         forControlEvents:UIControlEventTouchUpInside];
+        [host addSubview:button];
+        [NSLayoutConstraint activateConstraints:@[
+            [button.centerXAnchor constraintEqualToAnchor:host.centerXAnchor],
+            [button.centerYAnchor constraintEqualToAnchor:host.centerYAnchor]
+        ]];
+    }
+    button.hidden = NO;
+    [host bringSubviewToFront:button];
+}
+
 static void YTKACEBrowseViewDidLayoutSubviews(UIViewController *receiver, SEL selector) {
     if (OriginalBrowseLayoutSubviews != NULL) {
         ((void (*)(id, SEL))OriginalBrowseLayoutSubviews)(receiver, selector);
     }
     if (YTKACEIsHomeFeedReceiver(receiver)) {
         YTKACEHideSpinnersInTree(receiver.view, 0);
+        YTKACEEnsureHomeSettingsButton(receiver);
     }
 }
 

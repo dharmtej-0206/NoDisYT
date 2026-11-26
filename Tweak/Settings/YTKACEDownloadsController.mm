@@ -604,7 +604,7 @@ static void YTKACEStoreMode(NSString *field, NSInteger segment, NSInteger mode) 
     self.controlBar.translatesAutoresizingMaskIntoConstraints = NO;
 
     self.libraryTitleLabel = [UILabel new];
-    self.libraryTitleLabel.text = @"YTKACE";
+    self.libraryTitleLabel.text = @"NoDisYT";
     self.libraryTitleLabel.font = [UIFont systemFontOfSize:22.0
                                                     weight:UIFontWeightBold];
     self.libraryTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
