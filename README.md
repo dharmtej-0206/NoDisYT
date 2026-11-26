@@ -1,10 +1,16 @@
-# NoDisYT
+# NoDisYT (iOS)
 
-A distraction-free, focus-hardened YouTube iOS tweak and sideloadable IPA builder based on **[YTKACE](https://github.com/itzzace/ytkace)** (v1.1.9).
+A distraction-free, focus-hardened **YouTube tweak & sideloadable IPA for iOS** based on **[YTKACE](https://github.com/itzzace/ytkace)** (v1.1.9).
+
+## Compatibility
+
+- **Platform:** iOS (arm64)
+- **Tweak:** iOS 15.0 and newer
+- **Sideloaded IPA (YouTube 21.47.6):** iOS 17.0 and newer — install with TrollStore, AltStore, SideStore, or LiveContainer
 
 ## Credits & Attribution
 
-**NoDisYT** is built directly on top of **[YTKACE](https://github.com/itzzace/ytkace)** by **[itzzace](https://github.com/itzzace)**, licensed under the [MIT License](LICENSE). All core YouTube enhancement features (ad blocking, SponsorBlock, DeArrow, downloads, local queue, Liquid Glass, playback controls, and settings infrastructure) belong to YTKACE and its contributors. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for additional upstream notices.
+**NoDisYT for iOS** is built directly on top of **[YTKACE](https://github.com/itzzace/ytkace)** by **[itzzace](https://github.com/itzzace)**, licensed under the [MIT License](LICENSE). All core YouTube enhancement features (ad blocking, SponsorBlock, DeArrow, downloads, local queue, Liquid Glass, playback controls, and settings infrastructure) belong to YTKACE and its contributors. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for additional upstream notices.
 
 ## Focus Features Added in NoDisYT
 
