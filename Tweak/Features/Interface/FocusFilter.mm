@@ -1707,6 +1707,8 @@ static void YTKACEUIActivityStartAnimating(UIView *receiver, SEL selector) {
 }
 
 static const NSInteger kFocusHomeHubTag = 0x464F4353;
+static const NSInteger kFocusHomeGearTag = 0x464F4354;
+static const void *kFocusHomeGearTopConstraintKey = &kFocusHomeGearTopConstraintKey;
 
 static UIControl *YTKACEFindNativeSearchButtonInView(UIView *root, NSUInteger depth) {
     if (root == nil || depth > 14) return nil;
@@ -1717,7 +1719,7 @@ static UIControl *YTKACEFindNativeSearchButtonInView(UIView *root, NSUInteger de
             if ([btn isKindOfClass:UIControl.class]) return (UIControl *)btn;
         }
     }
-    if ([root isKindOfClass:UIControl.class] && root.tag != kFocusHomeHubTag) {
+    if ([root isKindOfClass:UIControl.class] && root.tag != kFocusHomeHubTag && root.tag != kFocusHomeGearTag) {
         NSString *ident = root.accessibilityIdentifier.lowercaseString ?: @"";
         NSString *label = root.accessibilityLabel.lowercaseString ?: @"";
         if ([ident isEqualToString:@"id.ui.navigation.search.button"] ||
@@ -1735,6 +1737,7 @@ static UIControl *YTKACEFindNativeSearchButtonInView(UIView *root, NSUInteger de
 @interface YTKACEHomeSearchTarget : NSObject
 + (instancetype)sharedTarget;
 - (void)openSearch:(UIButton *)sender;
+- (void)openSettings:(UIButton *)sender;
 @end
 
 @implementation YTKACEHomeSearchTarget
@@ -1762,6 +1765,40 @@ static UIControl *YTKACEFindNativeSearchButtonInView(UIView *root, NSUInteger de
     if (searchButton != nil) {
         [searchButton sendActionsForControlEvents:UIControlEventTouchUpInside];
     }
+}
+
+- (void)openSettings:(UIButton *)sender {
+    UIResponder *walk = sender;
+    UIViewController *presenter = nil;
+    while (walk != nil) {
+        if ([walk isKindOfClass:UIViewController.class]) {
+            presenter = (UIViewController *)walk;
+            break;
+        }
+        walk = walk.nextResponder;
+    }
+    while (presenter.presentedViewController != nil) {
+        presenter = presenter.presentedViewController;
+    }
+    if (presenter == nil) {
+        for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (![scene isKindOfClass:UIWindowScene.class]) continue;
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+                if (window.isKeyWindow && window.rootViewController != nil) {
+                    presenter = window.rootViewController;
+                    while (presenter.presentedViewController != nil) {
+                        presenter = presenter.presentedViewController;
+                    }
+                    break;
+                }
+            }
+            if (presenter != nil) break;
+        }
+    }
+    if (presenter == nil) return;
+    [presenter presentViewController:YTKACEMakeSettingsNavigationController()
+                            animated:YES
+                          completion:nil];
 }
 @end
 
@@ -1793,9 +1830,10 @@ static UIImage *YTKACEBuildRedYouTubePlayIcon(CGSize size) {
 static void YTKACEEnsureHomeSearchHub(UIViewController *controller) {
     UIView *host = controller.view;
     if (host == nil) return;
+
+    // 1. Centered Logo + Search Bar
     UIView *hub = [host viewWithTag:kFocusHomeHubTag];
     if (hub == nil) {
-        // 1. Custom Logo: [Red Play Icon] YouTube tej(cursive)
         UIImageView *playIcon = [[UIImageView alloc] initWithImage:
             YTKACEBuildRedYouTubePlayIcon(CGSizeMake(40.0, 28.0))];
         playIcon.contentMode = UIViewContentModeScaleAspectFit;
@@ -1827,7 +1865,6 @@ static void YTKACEEnsureHomeSearchHub(UIViewController *controller) {
         logoRow.alignment = UIStackViewAlignmentCenter;
         logoRow.spacing = 6.0;
 
-        // 2. Centered minimalist Search Bar
         UIButtonConfiguration *cfg = [UIButtonConfiguration filledButtonConfiguration];
         cfg.title = @"Search";
         UIImageSymbolConfiguration *symCfg = [UIImageSymbolConfiguration
@@ -1872,6 +1909,45 @@ static void YTKACEEnsureHomeSearchHub(UIViewController *controller) {
     }
     hub.hidden = NO;
     [host bringSubviewToFront:hub];
+
+    // 2. Top-Right NoDisYT Settings Gear Icon (guaranteed visible & tappable)
+    UIButton *gearBtn = (UIButton *)[host viewWithTag:kFocusHomeGearTag];
+    CGFloat topOffset = (host.safeAreaInsets.top >= 90.0) ? 8.0 : 54.0;
+    if (gearBtn == nil) {
+        gearBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        gearBtn.tag = kFocusHomeGearTag;
+        UIImageSymbolConfiguration *gearCfg = [UIImageSymbolConfiguration
+            configurationWithPointSize:22.0 weight:UIImageSymbolWeightRegular];
+        [gearBtn setImage:[UIImage systemImageNamed:@"gearshape" withConfiguration:gearCfg]
+                 forState:UIControlStateNormal];
+        gearBtn.tintColor = UIColor.labelColor;
+        gearBtn.accessibilityLabel = @"NoDisYT Settings";
+        gearBtn.accessibilityIdentifier = @"YTKACESettingsButton";
+        gearBtn.translatesAutoresizingMaskIntoConstraints = NO;
+        [gearBtn addTarget:YTKACEHomeSearchTarget.sharedTarget
+                    action:@selector(openSettings:)
+          forControlEvents:UIControlEventTouchUpInside];
+        [host addSubview:gearBtn];
+
+        NSLayoutConstraint *topConstraint = [gearBtn.topAnchor
+            constraintEqualToAnchor:host.safeAreaLayoutGuide.topAnchor
+                           constant:topOffset];
+        objc_setAssociatedObject(gearBtn, kFocusHomeGearTopConstraintKey, topConstraint,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [NSLayoutConstraint activateConstraints:@[
+            topConstraint,
+            [gearBtn.trailingAnchor constraintEqualToAnchor:host.safeAreaLayoutGuide.trailingAnchor constant:-16.0],
+            [gearBtn.widthAnchor constraintEqualToConstant:40.0],
+            [gearBtn.heightAnchor constraintEqualToConstant:40.0]
+        ]];
+    } else {
+        NSLayoutConstraint *topConstraint = objc_getAssociatedObject(gearBtn, kFocusHomeGearTopConstraintKey);
+        if (topConstraint != nil && fabs(topConstraint.constant - topOffset) > 0.5) {
+            topConstraint.constant = topOffset;
+        }
+    }
+    gearBtn.hidden = NO;
+    [host bringSubviewToFront:gearBtn];
 }
 
 static void YTKACEBrowseViewDidLayoutSubviews(UIViewController *receiver, SEL selector) {
