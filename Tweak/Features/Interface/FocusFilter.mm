@@ -78,7 +78,11 @@ static IMP OriginalQTMStartAnimating = NULL;
 static IMP OriginalUIActivityStartAnimating = NULL;
 static IMP OriginalBrowseLayoutSubviews = NULL;
 static IMP OriginalSearchViewFocusLayout = NULL;
-static IMP OriginalSearchSuggestionsLayout = NULL;
+static IMP OriginalSuggestViewLayout = NULL;
+static IMP OriginalSuggestViewDidMove = NULL;
+static IMP OriginalSuggestVCWillAppear = NULL;
+static IMP OriginalSuggestVCLayout = NULL;
+static IMP OriginalSuggestCellLayout = NULL;
 
 // Allowed YouTube Data API v3 category IDs:
 // 22 = People & Blogs, 24 = Entertainment, 26 = Howto & Style,
@@ -1912,9 +1916,33 @@ static void YTKACEEnsureHomeSearchHub(UIViewController *controller) {
     hub.hidden = NO;
     [host bringSubviewToFront:hub];
 
-    // 2. Top-Right NoDisYT Settings Gear Icon (guaranteed visible & tappable)
+    // 2. Remove the grey top header bar chrome on Home (matches Light & Dark seamlessly)
+    UIView *comboRoot = controller.parentViewController.view ?: host.superview;
+    if (comboRoot != nil) {
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:comboRoot];
+        NSUInteger visited = 0;
+        while (queue.count > 0 && visited < 40) {
+            UIView *node = queue.firstObject;
+            [queue removeObjectAtIndex:0];
+            visited++;
+            if (node == host || node == hub) continue;
+            NSString *cls = NSStringFromClass([node class]);
+            if ([cls isEqualToString:@"YTHeaderView"] ||
+                [cls isEqualToString:@"YTNavigationBar"] ||
+                [cls containsString:@"HeaderView"]) {
+                node.alpha = 0.0;
+                node.userInteractionEnabled = NO;
+                continue;
+            }
+            if (node.subviews.count > 0) {
+                [queue addObjectsFromArray:node.subviews];
+            }
+        }
+    }
+
+    // 3. Top-Right NoDisYT Settings Gear Icon (guaranteed visible & tappable)
     UIButton *gearBtn = (UIButton *)[host viewWithTag:kFocusHomeGearTag];
-    CGFloat topOffset = (host.safeAreaInsets.top >= 90.0) ? 8.0 : 54.0;
+    CGFloat topOffset = 10.0;
     if (gearBtn == nil) {
         gearBtn = [UIButton buttonWithType:UIButtonTypeSystem];
         gearBtn.tag = kFocusHomeGearTag;
@@ -2002,13 +2030,49 @@ static void YTKACESearchViewFocusLayout(UIView *receiver, SEL selector) {
     }
 }
 
-static void YTKACESearchSuggestionsDidLayout(UIViewController *receiver, SEL selector) {
-    if (OriginalSearchSuggestionsLayout != NULL) {
-        ((void (*)(id, SEL))OriginalSearchSuggestionsLayout)(receiver, selector);
+static void YTKACESuggestViewLayout(UIView *receiver, SEL selector) {
+    if (OriginalSuggestViewLayout != NULL) {
+        ((void (*)(id, SEL))OriginalSuggestViewLayout)(receiver, selector);
+    }
+    receiver.hidden = YES;
+    receiver.alpha = 0.0;
+    receiver.userInteractionEnabled = NO;
+}
+
+static void YTKACESuggestViewDidMove(UIView *receiver, SEL selector) {
+    if (OriginalSuggestViewDidMove != NULL) {
+        ((void (*)(id, SEL))OriginalSuggestViewDidMove)(receiver, selector);
+    }
+    receiver.hidden = YES;
+    receiver.alpha = 0.0;
+    receiver.userInteractionEnabled = NO;
+}
+
+static void YTKACESuggestVCWillAppear(UIViewController *receiver, SEL selector, BOOL animated) {
+    if (OriginalSuggestVCWillAppear != NULL) {
+        ((void (*)(id, SEL, BOOL))OriginalSuggestVCWillAppear)(receiver, selector, animated);
     }
     receiver.view.hidden = YES;
     receiver.view.alpha = 0.0;
     receiver.view.userInteractionEnabled = NO;
+}
+
+static void YTKACESuggestVCLayout(UIViewController *receiver, SEL selector) {
+    if (OriginalSuggestVCLayout != NULL) {
+        ((void (*)(id, SEL))OriginalSuggestVCLayout)(receiver, selector);
+    }
+    receiver.view.hidden = YES;
+    receiver.view.alpha = 0.0;
+    receiver.view.userInteractionEnabled = NO;
+}
+
+static void YTKACESuggestCellLayout(UIView *receiver, SEL selector) {
+    if (OriginalSuggestCellLayout != NULL) {
+        ((void (*)(id, SEL))OriginalSuggestCellLayout)(receiver, selector);
+    }
+    receiver.hidden = YES;
+    receiver.alpha = 0.0;
+    receiver.userInteractionEnabled = NO;
 }
 
 void YTKACEInstallFocusFilterHooks(void) {
@@ -2100,8 +2164,24 @@ void YTKACEInstallFocusFilterHooks(void) {
                               @"layoutSubviews",
                               (IMP)YTKACESearchViewFocusLayout,
                               &OriginalSearchViewFocusLayout);
-    YTKACEInstallInstanceHook(@"YTSearchSuggestionsViewController",
+    YTKACEInstallInstanceHook(@"YTSuggestView",
+                              @"layoutSubviews",
+                              (IMP)YTKACESuggestViewLayout,
+                              &OriginalSuggestViewLayout);
+    YTKACEInstallInstanceHook(@"YTSuggestView",
+                              @"didMoveToWindow",
+                              (IMP)YTKACESuggestViewDidMove,
+                              &OriginalSuggestViewDidMove);
+    YTKACEInstallInstanceHook(@"YTSuggestViewController",
+                              @"viewWillAppear:",
+                              (IMP)YTKACESuggestVCWillAppear,
+                              &OriginalSuggestVCWillAppear);
+    YTKACEInstallInstanceHook(@"YTSuggestViewController",
                               @"viewDidLayoutSubviews",
-                              (IMP)YTKACESearchSuggestionsDidLayout,
-                              &OriginalSearchSuggestionsLayout);
+                              (IMP)YTKACESuggestVCLayout,
+                              &OriginalSuggestVCLayout);
+    YTKACEInstallInstanceHook(@"YTSearchSuggestionCollectionViewCell",
+                              @"layoutSubviews",
+                              (IMP)YTKACESuggestCellLayout,
+                              &OriginalSuggestCellLayout);
 }
