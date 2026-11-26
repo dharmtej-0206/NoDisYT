@@ -2,6 +2,7 @@
 #import "Features/Downloads/SABRDownloader.h"
 #import "Features/Downloads/DownloadLog.h"
 #import "Features/SponsorBlock/DeArrow.h"
+#import "Features/Interface/FocusFilter.h"
 #import "Runtime/Preferences.h"
 
 #import <UIKit/UIKit.h>
@@ -63,6 +64,7 @@ static void YTKACEInstallModules(void) {
     YTKACEInstallPlayerGestureHooks();
     YTKACEInstallOverlayVisibilityHooks();
     YTKACEInstallContentVisibilityHooks();
+    YTKACEInstallFocusFilterHooks();
     YTKACEInstallNavigationVisibilityHooks();
     YTKACEInstallMiscellaneousHooks();
     YTKACEInstallCopyCommentHooks();

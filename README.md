@@ -1,146 +1,53 @@
-# YTKACE
+# NoDisYT
 
-An open-source YouTube enhancement for iOS.
+A distraction-free, focus-hardened YouTube iOS tweak and sideloadable IPA builder based on **[YTKACE](https://github.com/itzzace/ytkace)** (v1.1.9).
 
-News, test builds and giveaways: [Telegram](https://t.me/ytkace)
+## Credits & Attribution
 
-## Features
+**NoDisYT** is built directly on top of **[YTKACE](https://github.com/itzzace/ytkace)** by **[itzzace](https://github.com/itzzace)**, licensed under the [MIT License](LICENSE). All core YouTube enhancement features (ad blocking, SponsorBlock, DeArrow, downloads, local queue, Liquid Glass, playback controls, and settings infrastructure) belong to YTKACE and its contributors. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for additional upstream notices.
 
-| Area | Included |
-|---|---|
-| Downloads | Video, audio, Shorts and whole-playlist downloads; save to the library, Photos or the share sheet; sorting; backup and restore |
-| Queue | Play next or play last without Premium, with reorder, swipe to remove, shuffle, loop and clear |
-| Playback | Background playback, PiP, loop, speed controls, default speed, gestures, tap to seek and an HLS playback mode |
-| SponsorBlock | Category controls, progress markers, skip modes and configurable alerts |
-| Interface | OLED mode, overlay controls, navigation cleanup and native share sheets |
-| Liquid Glass | Glass tab bar, top bar buttons, menus, sheets, player buttons and YTKACE popups on iOS 26, with shrink on scroll and a selected tab color |
-| Tabs | Hide, reorder and add YouTube destinations |
-| iPhone Duo | System tab bar in every position, video above the crease with controls below when half open like a laptop, and the status bar hidden over the watch page video |
-| Library | Downloaded video, Shorts and audio players with resume support |
-| Settings | Searchable settings, 15 languages and a native YouTube settings section |
+## Focus Features Added in NoDisYT
 
-## Compatibility
+- **Clean Home & Watch Surfaces**
+  - Removes all Home screen recommendations (`FEwhat_to_watch`) and stops/hides the Home loading spinner (`MDCActivityIndicator` / `UIActivityIndicatorView`) so it consumes zero idle resources.
+  - Removes Watch page related/suggested videos and creator end-screen recommendations.
+  - Redirects Shorts (`reelWatchEndpoint`) to the standard video player (`watchEndpoint`).
+- **YTBlock-Style `BLOCKED` Overlay (No Unhide Button)**
+  - Replaces blocked video cards in Search, feeds, and playlists with a bordered `BLOCKED` card (red `nosign` badge + bold `BLOCKED`, light/dark mode aware) and blocks playback in the player if opened directly.
+  - Filters by **channel blocklist** (59 default channels + user-blocked channels), **title keywords** (69 default keywords), and **YouTube Data API v3 categories** (cached locally for 30 days; allows only *Education*, *Entertainment*, *Howto & Style*, *People & Blogs*, and *Science & Technology* by default).
+- **One-Tap 3-Dot Menu Blocking (Block-Only)**
+  - Adds **Block Channel** and **Block Video** to every video's 3-dot menu.
+  - Works immediately without a password and persists across app restarts.
+- **Password-Protected Focus Filters Settings**
+  - Accessible under **YTKACE → Focus Filters** (prompts to set a password on first open, stored as a salted SHA-256 hash).
+  - Manage blocked categories, title keywords, blocked channels, and individually blocked videos only after unlocking with your password.
+- **Permanently Locked Anti-Distraction Settings & Navigation Tabs**
+  - Permanently removes **Shorts**, **Subscriptions**, and **Library** from the bottom navigation bar and greys out the **Tabs** settings menu.
+  - Permanently locks ON and greys out 15 distraction-control toggles across Player, Watch Page, Home & Feed, and Shorts:
+    - **Player**: Remove End Screen, Remove More Videos, Remove Autoplay Prompt, Remove Continue Watching, Stop Autoplay Next, Disable Previous/Next
+    - **Watch Page**: Remove Suggested Videos
+    - **Home & Feed**: Remove Shorts Shelves, Remove Mixes, Remove Playables
+    - **Shorts**: Play Shorts Once, Remove Live Shorts, Remove Pause Suggestions, Remove Suggestion Pill, Remove Posts from Shorts
 
-- **iOS:** 15.0 and newer (tweak packages); the prebuilt IPAs follow their YouTube base
-- **Architecture:** arm64
-- **YTKACE:** 1.1.9
+## Building Locally
 
-YouTube 21.47.6 requires iOS 17, so two IPAs are published:
+### 1. Optional: Configure YouTube Data API v3 Key (for Category Filtering)
+Create `Tweak/Features/Interface/FocusAPIKey.local.h` (git-ignored so your key is never committed):
 
-| IPA | YouTube base | iOS |
-| --- | --- | --- |
-| `YTKACE_1.1.9_YouTube_iOS16_21.33.6.ipa` | 21.33.6 | 16.0 and newer |
-| `YTKACE_1.1.9_YouTube_21.47.6.ipa` | 21.47.6 | 17.0 and newer |
-
-Pick the 21.47.6 build unless you are on iOS 16. Either one installs with TrollStore or a developer-certificate sideloader.
-
-Need a certificate? [FlareStore](https://flarestore.vip/p/ytkace)
-
-## Install
-
-**Jailbroken.** Add the repository in Sileo, Zebra or Cydia:
-
-```
-https://itzzace.github.io/ytkace/
+```objc
+static NSString *const kYTBlockAPIKey = @"YOUR_YOUTUBE_DATA_API_V3_KEY";
 ```
 
-Rootless and roothide packages are both published. The repository page also has an
-[Add to Sileo](https://itzzace.github.io/ytkace/) button.
+Without this file, channel, title, Home, Watch, End Screen, Shorts redirect, and 3-dot blocking still work; only API-based category lookups are skipped.
 
-**Sideloaded.** Download the IPA for your iOS version from the [latest release](https://github.com/itzzace/ytkace/releases/latest) and install it with TrollStore, AltStore, SideStore or LiveContainer.
+### 2. Compile & Repack
+Using Theos (with an iOS 16.2+ SDK) and a decrypted YouTube `21.47.6` IPA:
 
-**Open in YTKACE.** Sideloaded IPAs include a Safari extension that opens YouTube links in the app. Go to Settings → Apps → Safari → Extensions → Open in YTKACE (Settings → Safari on older iOS versions). Turn it on, set YouTube website access to **Allow**, then reload any open YouTube tabs.
-
-## Build
-
-Fork the repository, enable Actions, open the **IPA** workflow and provide a direct link to a decrypted YouTube IPA you are legally allowed to use. The completed workflow provides the injected IPA as an artifact. The **Deb** workflow builds the tweak package.
-
-To build both IPAs in one run, fill in the second URL field as well: the workflow takes an iOS 16 base (21.33.6) and an optional iOS 17+ base (21.47.6), and uploads them as separate artifacts. Leaving the second field empty builds a single IPA.
-
-## Settings
-
-Open the YTKACE tab and tap the gear, or open YouTube Settings and choose YTKACE.
-Both pages carry the same options, and the YouTube Settings section has a search bar.
-
-## Screenshots
-
-<p align="center">
-  <img src="screenshots/framed/settings.png" width="220" alt="YTKACE settings">
-  <img src="screenshots/framed/video-download-menu.png" width="220" alt="Video download menu">
-  <img src="screenshots/framed/audio-player.png" width="220" alt="Audio player">
-</p>
-
-<p align="center">
-  <sub>Settings · Downloads · Audio Player</sub>
-</p>
-
-<p align="center">
-  <img src="screenshots/framed/glass-menu.png" width="220" alt="Liquid Glass menu">
-  <img src="screenshots/framed/glass-quality-sheet.png" width="220" alt="Liquid Glass quality sheet">
-  <img src="screenshots/framed/glass-download.png" width="220" alt="Liquid Glass download progress">
-</p>
-
-<p align="center">
-  <sub>Liquid Glass · Menus · Sheets · Tab Bar</sub>
-</p>
-
-<details>
-  <summary>More screenshots</summary>
-  <br>
-  <p align="center">
-    <img src="screenshots/framed/shorts-download-menu.png" width="190" alt="Shorts download menu">
-    <img src="screenshots/framed/tab-editor.png" width="190" alt="Tab editor">
-    <img src="screenshots/framed/download-progress.png" width="190" alt="Download progress">
-  </p>
-  <p align="center">
-    <img src="screenshots/framed/download-library.png" width="190" alt="Download library">
-    <img src="screenshots/framed/video-player.png" width="190" alt="Downloaded video player">
-    <img src="screenshots/framed/player-settings.png" width="190" alt="Player settings">
-  </p>
-  <p align="center">
-    <img src="screenshots/framed/sponsorblock-settings.png" width="190" alt="SponsorBlock settings">
-    <img src="screenshots/framed/audio-queue.png" width="190" alt="Audio queue">
-  </p>
-  <p align="center">
-    <img src="screenshots/framed/glass-settings.png" width="190" alt="Liquid Glass settings">
-    <img src="screenshots/framed/glass-share-sheet.png" width="190" alt="Liquid Glass share sheet">
-    <img src="screenshots/framed/glass-home.png" width="190" alt="Liquid Glass tab bar">
-  </p>
-</details>
-
-## Privacy
-
-YTKACE has no activation service, analytics, telemetry or updater.
-
-## Notes
-
-The playback fix that shipped after 0.8.0 was taken from another project without credit and has been removed. The current Playback Fix is adapted from Mark02's YTPlaybackFix under the MIT license and is credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). If you find anything else that isn't credited, open an issue and it will be credited or removed.
-
-## Contributing
-
-Contributions are welcome — issues and pull requests both help.
-
-For bug reports, include your device, iOS version and YouTube version.
-
-For pull requests, keep each one focused on a single change and match the
-surrounding style. Two things worth knowing:
-
-- Hooks are installed by name through the helpers in `Tweak/Runtime/Hooking.h`,
-  not a hooking framework, so a missing class or selector fails quietly instead
-  of crashing on older YouTube versions.
-- New user-facing strings go through `YTKACELocalized` and belong in
-  `Resources/YTKACE.bundle/en.lproj/Localizable.strings`. Translations for the
-  other 14 languages can follow separately.
-
-Build instructions are above.
-
-## Donate
-
-If YTKACE is useful to you, you can support it on [Ko-fi](https://ko-fi.com/itzzace) or with crypto:
-
-- **BTC:** `bc1q6ahl2mghgq34r3w26yhwevsza0vl8436gugxke`
-- **LTC:** `LYQ2ivZ52d2zAsm896MwWEkPEi15WwprS4`
+```bash
+make TARGET=iphone:clang:16.2:15.0
+bash Scripts/sideload-repack.sh <DecryptedYouTube.ipa> dist/YTKACE.dylib NoDisYT_YouTube_21.47.6.ipa
+```
 
 ## License
 
-YTKACE source is available under the [MIT License](LICENSE). See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for components and services with separate terms.
+MIT License — see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Full credit to **[itzzace/ytkace](https://github.com/itzzace/ytkace)** for the upstream YTKACE project.

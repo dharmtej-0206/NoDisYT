@@ -1,4 +1,5 @@
 #import "../Interface/AiSList.h"
+#import "../Interface/FocusFilter.h"
 #import "DownloadCoordinator.h"
 #import "DownloadLog.h"
 #import "SABRDownloader.h"
@@ -922,6 +923,7 @@ static void YTKACECaptureMenuSource(id view) {
 
 static IMP OriginalShowMenuCompletion;
 static IMP OriginalShowMenuSkipCompletion;
+static IMP OriginalActionsForRenderers;
 static IMP OriginalActionsForRenderersLog;
 
 static void YTKACEShowMenuCompletion(id receiver, SEL selector, id renderer,
@@ -995,6 +997,21 @@ static id YTKACEFilteredMenuRenderers(id renderers) {
     return kept.count == [renderers count] ? renderers : kept;
 }
 
+static id YTKACEActionsForRenderers(id receiver, SEL selector, id renderers,
+                                    id view, id entry, id responder) {
+    id allRenderers = renderers;
+    renderers = YTKACEFilteredMenuRenderers(renderers);
+    YTKACEQueuePrepareMenuRenderers(renderers);
+    YTKACECaptureMenuSource(view);
+    if (OriginalActionsForRenderers == NULL) return nil;
+    id actions = ((id (*)(id, SEL, id, id, id, id))OriginalActionsForRenderers)(
+        receiver, selector, renderers, view, entry, responder);
+    YTKACERouteSpeedMenuItem(renderers, actions, view, responder);
+    YTKACEQueueWrapMenuActions(renderers, actions);
+    actions = YTKACEAiSListAppendMenuAction(allRenderers, actions);
+    return YTKACEFocusAppendMenuActions(allRenderers, entry, view, actions);
+}
+
 static id YTKACEActionsForRenderersLog(id receiver, SEL selector, id renderers,
                                        id view, id entry, BOOL log,
                                        id responder) {
@@ -1007,7 +1024,8 @@ static id YTKACEActionsForRenderersLog(id receiver, SEL selector, id renderers,
         receiver, selector, renderers, view, entry, log, responder);
     YTKACERouteSpeedMenuItem(renderers, actions, view, responder);
     YTKACEQueueWrapMenuActions(renderers, actions);
-    return YTKACEAiSListAppendMenuAction(allRenderers, actions);
+    actions = YTKACEAiSListAppendMenuAction(allRenderers, actions);
+    return YTKACEFocusAppendMenuActions(allRenderers, entry, view, actions);
 }
 
 static UIView *YTKACEOverflowButtonInside(UIView *root) {
@@ -1155,6 +1173,9 @@ void YTKACEInstallFeedDownloadHooks(void) {
     YTKACEInstallInstanceHook(@"YTMenuController",
         @"showMenuWithMenuRenderer:fromView:entry:dismissalBlock:addCancelAction:shouldLogItems:skipCollapsedState:firstResponder:completion:",
         (IMP)YTKACEShowMenuSkipCompletion, &OriginalShowMenuSkipCompletion);
+    YTKACEInstallInstanceHook(@"YTMenuController",
+        @"actionsForRenderers:fromView:entry:firstResponder:",
+        (IMP)YTKACEActionsForRenderers, &OriginalActionsForRenderers);
     YTKACEInstallInstanceHook(@"YTMenuController",
         @"actionsForRenderers:fromView:entry:shouldLogItems:firstResponder:",
         (IMP)YTKACEActionsForRenderersLog, &OriginalActionsForRenderersLog);

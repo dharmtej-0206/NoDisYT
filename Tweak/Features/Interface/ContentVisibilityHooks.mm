@@ -3,6 +3,7 @@
 #import "../../Runtime/Preferences.h"
 #import "../Downloads/DownloadLog.h"
 #import "AiSList.h"
+#import "FocusFilter.h"
 
 #import <UIKit/UIKit.h>
 #import <objc/message.h>
@@ -2588,8 +2589,9 @@ static BOOL YTKACEDropShortsEntries(id section) {
 
 static NSArray *YTKACEFilteredFeedSections(id receiver, NSArray *sections) {
     YTKACEFeedEnsureFlagObserver();
+    NSArray *focusFiltered = YTKACEFocusFilterSections(receiver, sections);
     NSArray *adFiltered = YTKACEMixFilteredFeedSections(
-        YTKACEFilterAdSections(sections));
+        YTKACEFilterAdSections(focusFiltered));
     if ([adFiltered isKindOfClass:NSArray.class] && adFiltered.count != 0 &&
         YTKACEFeatureEnabled(@"YTKACE.Preference.Overlay.CommentGuidelinesHidden")) {
         NSIndexSet *guidelines = [adFiltered indexesOfObjectsPassingTest:

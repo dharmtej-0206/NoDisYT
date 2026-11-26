@@ -22,6 +22,56 @@ static NSUserDefaults *YTKACEDefaults(void) {
     return NSUserDefaults.standardUserDefaults;
 }
 
+static NSSet<NSString *> *YTKACELockedPreferenceKeys(void) {
+    static NSSet<NSString *> *keys = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        keys = [NSSet setWithArray:@[
+            @"YTKACE.Preference.Overlay.EndScreenHidden",
+            @"YTKACE.Preference.Overlay.MoreVideosHidden",
+            @"YTKACE.Preference.Overlay.AutoplayPromptHidden",
+            @"YTKACE.Preference.Overlay.ContinueWatchingDisabled",
+            @"YTKACE.Preference.Playback.AutoplayDisabled",
+            @"YTKACE.Preference.Overlay.PreviousNextDisabled",
+            @"YTKACE.Preference.Overlay.SuggestedVideosHidden",
+            @"YTKACE.Preference.Shorts.FeedHidden",
+            @"YTKACE.Preference.Feed.MixesHidden",
+            @"YTKACE.Preference.Feed.PlayablesHidden",
+            @"YTKACE.Preference.Shorts.LoopDisabled",
+            @"YTKACE.Preference.Shorts.LiveHidden",
+            @"YTKACE.Preference.Shorts.PauseCardHidden",
+            @"YTKACE.Preference.Shorts.SuggestionPillHidden",
+            @"YTKACE.Preference.Shorts.PostsHidden",
+            @"YTKACE.Preference.Tabs.Hidden.Shorts",
+            @"YTKACE.Preference.Tabs.Hidden.Subscriptions",
+            @"YTKACE.Preference.Tabs.Hidden.Library"
+        ]];
+    });
+    return keys;
+}
+
+BOOL YTKACEIsLockedPreference(NSString *key) {
+    if (key.length == 0) return NO;
+    return [YTKACELockedPreferenceKeys() containsObject:key];
+}
+
+static NSArray<NSString *> *YTKACESanitizedTabOrder(id rawOrder) {
+    NSSet<NSString *> *removed = [NSSet setWithArray:@[@"shorts", @"subscriptions", @"library"]];
+    NSMutableArray<NSString *> *filtered = [NSMutableArray array];
+    if ([rawOrder isKindOfClass:NSArray.class]) {
+        for (id entry in (NSArray *)rawOrder) {
+            if (![entry isKindOfClass:NSString.class]) continue;
+            NSString *token = [(NSString *)entry lowercaseString];
+            if ([removed containsObject:token]) continue;
+            [filtered addObject:entry];
+        }
+    }
+    if (filtered.count == 0) {
+        return @[@"home", @"ytkace"];
+    }
+    return [filtered copy];
+}
+
 static void YTKACEAnnouncePreferenceChange(NSString *key) {
     if (key.length == 0) return;
     if ([key isEqualToString:@"YTKACE.Preference.Language"]) {
@@ -188,7 +238,10 @@ void YTKACERegisterDefaults(void) {
         @"YTKACE.Preference.Tabs.Hidden.Notifs": @YES,
         @"YTKACE.Preference.Tabs.Hidden.WatchLater": @YES,
         @"YTKACE.Preference.Tabs.Hidden.CustomPlaylist": @YES,
-        @"YTKACE.Preference.Tabs.Order": @[@"home", @"shorts", @"subscriptions", @"library", @"ytkace"]
+        @"YTKACE.Preference.Tabs.Hidden.Shorts": @YES,
+        @"YTKACE.Preference.Tabs.Hidden.Subscriptions": @YES,
+        @"YTKACE.Preference.Tabs.Hidden.Library": @YES,
+        @"YTKACE.Preference.Tabs.Order": @[@"home", @"ytkace"]
     }];
     if (!hasPlacement && [legacyDownloadButton boolValue]) {
         [YTKACEDefaults() setInteger:1
@@ -218,6 +271,11 @@ void YTKACERegisterDefaults(void) {
         }
     }
     [YTKACEDefaults() setBool:YES forKey:YTKACEMasterEnabledKey];
+    for (NSString *lockedKey in YTKACELockedPreferenceKeys()) {
+        [YTKACEDefaults() setBool:YES forKey:lockedKey];
+    }
+    NSArray<NSString *> *cleanTabs = YTKACESanitizedTabOrder([YTKACEDefaults() objectForKey:@"YTKACE.Preference.Tabs.Order"]);
+    [YTKACEDefaults() setObject:cleanTabs forKey:@"YTKACE.Preference.Tabs.Order"];
     if ([YTKACEDefaults() objectForKey:@"YTKACE.Preference.Shorts.ProductsHidden"] != nil) {
         if ([YTKACEDefaults() boolForKey:@"YTKACE.Preference.Shorts.ProductsHidden"]) {
             [YTKACEDefaults() setBool:YES
@@ -256,6 +314,9 @@ BOOL YTKACEMasterEnabled(void) {
 BOOL YTKACEFeatureEnabled(NSString *key) {
     if (!YTKACEMasterEnabled() || key.length == 0) {
         return NO;
+    }
+    if (YTKACEIsLockedPreference(key)) {
+        return YES;
     }
     return [YTKACEDefaults() boolForKey:key];
 }
@@ -319,7 +380,7 @@ void YTKACESetPreference(NSString *key, BOOL enabled) {
         return;
     }
 
-    if ([key isEqualToString:YTKACEMasterEnabledKey]) {
+    if ([key isEqualToString:YTKACEMasterEnabledKey] || YTKACEIsLockedPreference(key)) {
         [YTKACEDefaults() setBool:YES forKey:key];
         YTKACEAnnouncePreferenceChange(key);
         return;
@@ -332,11 +393,27 @@ id YTKACEPreferenceObject(NSString *key) {
     if (key.length == 0) {
         return nil;
     }
+    if (YTKACEIsLockedPreference(key)) {
+        return @YES;
+    }
+    if ([key isEqualToString:@"YTKACE.Preference.Tabs.Order"]) {
+        return YTKACESanitizedTabOrder([YTKACEDefaults() objectForKey:key]);
+    }
     return [YTKACEDefaults() objectForKey:key];
 }
 
 void YTKACESetPreferenceObject(NSString *key, id value) {
     if (key.length == 0) {
+        return;
+    }
+    if (YTKACEIsLockedPreference(key)) {
+        [YTKACEDefaults() setBool:YES forKey:key];
+        YTKACEAnnouncePreferenceChange(key);
+        return;
+    }
+    if ([key isEqualToString:@"YTKACE.Preference.Tabs.Order"]) {
+        [YTKACEDefaults() setObject:YTKACESanitizedTabOrder(value) forKey:key];
+        YTKACEAnnouncePreferenceChange(key);
         return;
     }
     if (value == nil) {

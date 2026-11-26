@@ -8,6 +8,7 @@
 #import "../Downloads/DownloadLog.h"
 #import "../../UI/Assets.h"
 #import "../Interface/AiSList.h"
+#import "../Interface/FocusFilter.h"
 
 #import <QuartzCore/QuartzCore.h>
 #import <AudioToolbox/AudioToolbox.h>
@@ -542,6 +543,12 @@ static void YTKACEDidActivateVideo(id receiver,
     YTKACEFullscreenVideoActivated(receiver);
     YTKACELastPlayerController = receiver;
 
+    NSString *videoID =
+        YTKACEVideoIDFromObject(receiver) ?:
+        YTKACEVideoIDFromObject(video) ?:
+        YTKACEVideoIDFromObject(playbackData);
+    YTKACEFocusFilterVideoActivated(receiver, videoID);
+
     if (!YTKACESponsorBlockEnabled()) {
         objc_setAssociatedObject(receiver,
                                  YTKACESponsorSegmentsAssociation,
@@ -549,11 +556,6 @@ static void YTKACEDidActivateVideo(id receiver,
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         return;
     }
-
-    NSString *videoID =
-        YTKACEVideoIDFromObject(receiver) ?:
-        YTKACEVideoIDFromObject(video) ?:
-        YTKACEVideoIDFromObject(playbackData);
     if (videoID.length == 0) {
         return;
     }

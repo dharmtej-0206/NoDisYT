@@ -90,6 +90,7 @@ YTKACE_FILES = \
 	Tweak/Features/Gestures/PlayerGestures.mm \
 	Tweak/Features/Interface/OverlayVisibilityHooks.mm \
 	Tweak/Features/Interface/ContentVisibilityHooks.mm \
+	Tweak/Features/Interface/FocusFilter.mm \
 	Tweak/Features/Interface/ActionBarModel.mm \
 	Tweak/Features/Interface/AiSList.mm \
 	Tweak/Features/Interface/AiSListReport.mm \
@@ -108,6 +109,7 @@ YTKACE_FILES = \
 	Tweak/Settings/YTKACESettingsPages.mm \
 	Tweak/Settings/YTKACESettingsSearch.mm \
 	Tweak/Settings/YTKACETabEditorController.mm \
+	Tweak/Settings/YTKACEFocusFiltersController.mm \
 	Tweak/Settings/YTKACEActionBarLayoutView.mm \
 	Tweak/Settings/YTKACEButtonLayoutView.mm \
 	Tweak/Settings/YTKACEDownloadsController.mm

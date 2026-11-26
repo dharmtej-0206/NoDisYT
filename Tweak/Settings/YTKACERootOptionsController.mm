@@ -2,6 +2,7 @@
 #import "../YTKACE.h"
 #import "YTKACEDownloadsController.h"
 #import "YTKACESettingsPages.h"
+#import "YTKACEFocusFiltersController.h"
 #import "YTKACESettingsSearch.h"
 #import "../Runtime/Preferences.h"
 #import "../Runtime/Localization.h"
@@ -584,6 +585,10 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
     cell.detailTextLabel.font = [UIFont systemFontOfSize:12.0];
     cell.textLabel.textColor = UIColor.labelColor;
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.textLabel.alpha = 1.0;
+    cell.detailTextLabel.alpha = 1.0;
+    cell.imageView.alpha = 1.0;
+    cell.userInteractionEnabled = YES;
     cell.imageView.tintColor = UIColor.labelColor;
     cell.imageView.image = nil;
     cell.accessoryView = nil;
@@ -637,7 +642,16 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
         } else {
             [self configureImageForCell:cell asset:@"" symbol:row[@"symbol"]];
         }
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        if ([row[@"id"] isEqualToString:@"tabs"]) {
+            cell.textLabel.alpha = 0.45;
+            cell.detailTextLabel.alpha = 0.45;
+            cell.imageView.alpha = 0.45;
+            cell.accessoryType = UITableViewCellAccessoryNone;
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+            cell.userInteractionEnabled = NO;
+        } else {
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        }
         return cell;
     }
 
@@ -676,6 +690,11 @@ UIViewController *YTKACEMakeDownloadLogController(void) {
         return;
     }
     NSDictionary *row = menu[(NSUInteger)indexPath.section][@"rows"][(NSUInteger)indexPath.row];
+    if ([row[@"id"] isEqualToString:@"tabs"]) return;
+    if ([row[@"id"] isEqualToString:@"focus"]) {
+        YTKACEPresentFocusFiltersWithPasswordGate(self);
+        return;
+    }
     UIViewController *controller = YTKACEMakeSettingsPage(row[@"id"]);
     if (controller != nil) {
         [self.navigationController setNavigationBarHidden:NO animated:NO];

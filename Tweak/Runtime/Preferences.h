@@ -25,6 +25,7 @@ typedef NS_ENUM(NSInteger, YTKACEFullscreenOrientation) {
 
 FOUNDATION_EXPORT void YTKACERegisterDefaults(void);
 FOUNDATION_EXPORT BOOL YTKACEMasterEnabled(void);
+FOUNDATION_EXPORT BOOL YTKACEIsLockedPreference(NSString *key);
 FOUNDATION_EXPORT BOOL YTKACEFeatureEnabled(NSString *key);
 FOUNDATION_EXPORT BOOL YTKACEDownloadsEnabled(void);
 FOUNDATION_EXPORT NSInteger YTKACEDownloadPlacement(void);

@@ -840,6 +840,9 @@ willDisplayHeaderView:(UIView *)view
     cell.detailTextLabel.numberOfLines = 2;
     cell.textLabel.textColor = UIColor.labelColor;
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.textLabel.alpha = 1.0;
+    cell.detailTextLabel.alpha = 1.0;
+    cell.userInteractionEnabled = YES;
     cell.backgroundColor = YTKACESettingsCellBackground();
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     cell.accessoryType = UITableViewCellAccessoryNone;
@@ -850,8 +853,17 @@ willDisplayHeaderView:(UIView *)view
         UISwitch *toggle = [UISwitch new];
         toggle.transform = CGAffineTransformMakeScale(0.95, 0.95);
         toggle.onTintColor = YTKACEAccentColor();
-        id stored = YTKACEPreferenceObject(item[@"key"]);
-        toggle.on = [stored respondsToSelector:@selector(boolValue)] && [stored boolValue];
+        NSString *key = item[@"key"];
+        BOOL locked = YTKACEIsLockedPreference(key);
+        id stored = YTKACEPreferenceObject(key);
+        toggle.on = locked || ([stored respondsToSelector:@selector(boolValue)] && [stored boolValue]);
+        toggle.enabled = !locked;
+        toggle.alpha = locked ? 0.45 : 1.0;
+        if (locked) {
+            cell.textLabel.alpha = 0.45;
+            cell.detailTextLabel.alpha = 0.45;
+            cell.userInteractionEnabled = NO;
+        }
         objc_setAssociatedObject(toggle,
                                  YTKACEItemAssociation,
                                  item,
@@ -1084,6 +1096,10 @@ willDisplayHeaderView:(UIView *)view
 - (void)toggleChanged:(UISwitch *)sender {
     NSDictionary *item = objc_getAssociatedObject(sender, YTKACEItemAssociation);
     NSString *key = item[@"key"];
+    if (YTKACEIsLockedPreference(key)) {
+        sender.on = YES;
+        return;
+    }
     YTKACESetPreference(key, sender.isOn);
     if ([key isEqualToString:YTKACEOLEDKey]) {
         YTKACEApplyAppearance(self);
@@ -2457,6 +2473,7 @@ NSArray<NSDictionary *> *YTKACESettingsMenu(void) {
         ]},
         @{@"header": @"LOOK & LAYOUT", @"rows": look},
         @{@"header": @"APP", @"rows": @[
+            @{@"id": @"focus", @"title": @"Focus Filters", @"detail": @"Password-protected categories, titles, and channels", @"symbol": @"nosign"},
             @{@"id": @"downloads", @"title": @"Downloads", @"detail": @"Download button, where to save, and storage", @"symbol": @"arrow.down.circle"},
             @{@"id": @"backup", @"title": @"Backup", @"detail": @"Back up and restore settings and downloads", @"symbol": @"arrow.clockwise.icloud"},
             @{@"id": @"general", @"title": @"General", @"detail": @"Language, appearance, privacy, and prompts", @"symbol": @"gearshape"}
@@ -2482,7 +2499,7 @@ static NSDictionary *YTKACEDefinitionForPage(NSString *pageID) {
 }
 
 UIViewController *YTKACEMakeSettingsPage(NSString *pageID) {
-    if ([pageID isEqualToString:@"tabs"]) return YTKACEMakeTabBarOptionsController();
+    if ([pageID isEqualToString:@"tabs"]) return nil;
     NSDictionary *definition = YTKACEDefinitionForPage(pageID);
     return definition != nil ? YTKACEPageFromDefinition(definition) : nil;
 }
@@ -2505,20 +2522,6 @@ NSArray<NSDictionary *> *YTKACEAllPageDefinitions(void) {
             if (definition != nil) [pages addObject:definition];
         }
     }
-    [pages addObject:YTKACEPageDefinition(@"tabs", @"Tabs", @[
-        @[
-            YTKACEWithFooter(YTKACEToggle(@"iPhone Duo System Tab Bar", @"YTKACE.Preference.Tabs.DuoNativeBar", @"", @""),
-                             @"Shows the tabs in the iPhone Duo's own tab bar: the vertical bar, which expands with labels when held, or the floating bar at the bottom when unfolded upright."),
-            YTKACEToggle(@"Hide Tab Labels", @"YTKACE.Preference.Tabs.LabelsHidden", @"", @""),
-            YTKACEToggle(@"Don't Open App in Shorts", @"YTKACE.Preference.Shorts.PreventAutoOpen", @"", @""),
-            YTKACEPicker(@"Frosted Tab Bar", @"YTKACE.Preference.Tabs.Frosted",
-                         @[@"Default", @"On", @"Off"], @[@0, @1, @2], 0, @"", @""),
-            YTKACEPicker(@"Selected Tab Color", @"YTKACE.Preference.Tabs.SelectedTint",
-                         @[@"Off", @"Text Only", @"Text and Icon"],
-                         @[@0, @1, @2], 0, @"", @""),
-            YTKACEColor(@"Color", @"YTKACE.Preference.Tabs.SelectedTintColor", @"#0A84FF")
-        ]
-    ], @[YTKACELocalized(@"MAIN")])];
     return pages;
 }
 

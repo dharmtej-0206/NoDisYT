@@ -13,3 +13,4 @@ DerivedData/
 __pycache__/
 *.pyc
 tmp/
+Tweak/Features/Interface/FocusAPIKey.local.h
